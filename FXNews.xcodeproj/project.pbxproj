@@ -16,7 +16,7 @@
 			containerPortal = 1EC75FB02F90E1C2003B6F09 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 1EC75FB72F90E1C2003B6F09;
-			remoteInfo = tickr;
+			remoteInfo = FXnews;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -146,7 +146,7 @@
 			name = FXNewsTests;
 			packageProductDependencies = (
 			);
-			productName = tickrTests;
+			productName = FXNewsTests;
 			productReference = 1E74B2772F99BA76008AF26C /* FXNewsTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
@@ -168,7 +168,7 @@
 			name = FXNews;
 			packageProductDependencies = (
 			);
-			productName = tickr;
+			productName = FXNews;
 			productReference = 1EC75FB82F90E1C2003B6F09 /* FXNews.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -272,7 +272,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/tickr.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/tickr";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FXNews.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FXNews";
 			};
 			name = Debug;
 		};
@@ -293,7 +293,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/tickr.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/tickr";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FXNews.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FXNews";
 			};
 			name = Release;
 		};

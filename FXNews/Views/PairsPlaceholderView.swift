@@ -107,7 +107,7 @@ struct PairsPlaceholderView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("FXNews")
+                Text("FX News")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundStyle(FXNewsPalette.text)
             }
@@ -186,7 +186,7 @@ struct PairsPlaceholderView: View {
                             .font(.headline)
                             .foregroundStyle(FXNewsPalette.text)
 
-                        Text("Select the pairs you trade and FXNews will surface the events that matter most this week.")
+                        Text("Select the pairs you trade and FX News will surface the events that matter most this week.")
                             .font(.subheadline)
                             .foregroundStyle(FXNewsPalette.muted)
 

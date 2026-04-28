@@ -18,7 +18,7 @@
                BlueprintIdentifier = "1EC75FB72F90E1C2003B6F09"
                BuildableName = "FXNews.app"
                BlueprintName = "FXNews"
-               ReferencedContainer = "container:tickr.xcodeproj">
+               ReferencedContainer = "container:FXNews.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -38,7 +38,7 @@
                BlueprintIdentifier = "1E74B2762F99BA76008AF26C"
                BuildableName = "FXNewsTests.xctest"
                BlueprintName = "FXNewsTests"
-               ReferencedContainer = "container:tickr.xcodeproj">
+               ReferencedContainer = "container:FXNews.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -64,24 +64,15 @@
             ReferencedContainer = "container:FXNews.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "1EC75FB72F90E1C2003B6F09"
-            BuildableName = "FXNews.app"
-            BlueprintName = "FXNews"
-            ReferencedContainer = "container:tickr.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-&#x200b;Tickr&#x200b;Disable&#x200b;Calendar&#x200b;Cache"
+            argument = "-&#x200b;FXNews&#x200b;Disable&#x200b;Calendar&#x200b;Cache"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "TICKR&#x200b;_&#x200b;DISABLE&#x200b;_&#x200b;CALENDAR&#x200b;_&#x200b;CACHE"
+            key = "FXNews&#x200b;_&#x200b;DISABLE&#x200b;_&#x200b;CALENDAR&#x200b;_&#x200b;CACHE"
             value = "1"
             isEnabled = "YES">
          </EnvironmentVariable>
@@ -100,18 +91,9 @@
             BlueprintIdentifier = "1EC75FB72F90E1C2003B6F09"
             BuildableName = "FXNews.app"
             BlueprintName = "FXNews"
-            ReferencedContainer = "container:tickr.xcodeproj">
+            ReferencedContainer = "container:FXNews.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "1EC75FB72F90E1C2003B6F09"
-            BuildableName = "FXNews.app"
-            BlueprintName = "FXNews"
-            ReferencedContainer = "container:tickr.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

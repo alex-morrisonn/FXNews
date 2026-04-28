@@ -120,7 +120,7 @@ private enum SessionNotificationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .authorizationDenied:
-            "Notifications are disabled for FXNews."
+            "Notifications are disabled for FX News."
         case .notificationWindowPassed:
             "The next 15-minute warning for that session has already passed."
         case .quietHoursBlocked:

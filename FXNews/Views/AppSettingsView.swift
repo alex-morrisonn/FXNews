@@ -55,7 +55,7 @@ struct AppSettingsView: View {
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("FXNews")
+                Text("FX News")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundStyle(FXNewsPalette.text)
             }
@@ -215,7 +215,7 @@ struct AppSettingsView: View {
                     } ?? "No refresh yet"
                 )
 
-                FXNewsInfoRow(label: "Data source", value: "FXNews calendar feed")
+                FXNewsInfoRow(label: "Data source", value: "FX News calendar feed")
 
                 Button {
                     Task {
@@ -251,7 +251,7 @@ struct AppSettingsView: View {
                 FXNewsInfoRow(label: "App version", value: appVersion)
 
                 settingsLinkButton(title: "Send Feedback", action: {
-                    openURL(URL(string: "mailto:feedback@fxnews.app?subject=Session%20Watch%20Feedback")!)
+                    openURL(URL(string: "mailto:feedback@fxnews.app?subject=FX%20News%20Feedback")!)
                 })
 
                 settingsLinkButton(title: "Privacy Policy", action: {
@@ -423,7 +423,7 @@ struct AppSettingsView: View {
                 notificationMessage = error.localizedDescription
             }
         @unknown default:
-            notificationMessage = "FXNews could not confirm your notification status."
+            notificationMessage = "FX News could not confirm your notification status."
         }
     }
 

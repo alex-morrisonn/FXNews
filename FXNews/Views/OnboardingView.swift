@@ -59,7 +59,7 @@ struct OnboardingView: View {
     private var progressHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("FXNews")
+                Text("FX News")
                     .font(.caption.weight(.semibold))
                     .tracking(1.2)
                     .foregroundStyle(FXNewsPalette.muted)
@@ -83,7 +83,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 18) {
             Spacer(minLength: 20)
 
-            Text("FXNews")
+            Text("FX News")
                 .font(.system(size: 36, weight: .bold, design: .rounded))
                 .foregroundStyle(FXNewsPalette.text)
 
@@ -110,7 +110,7 @@ struct OnboardingView: View {
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundStyle(FXNewsPalette.text)
 
-            Text("Choose the pairs you want FXNews to prioritize. You can change this anytime.")
+            Text("Choose the pairs you want FX News to prioritize. You can change this anytime.")
                 .font(.subheadline)
                 .foregroundStyle(FXNewsPalette.muted)
 
@@ -268,13 +268,13 @@ struct OnboardingView: View {
     private var notificationStatusCopy: String {
         switch notificationAuthorizationStatus {
         case .denied:
-            "Notifications are turned off for FXNews. Open Settings to allow alerts, then come back to finish setup."
+            "Notifications are turned off for FX News. Open Settings to allow alerts, then come back to finish setup."
         case .authorized, .provisional, .ephemeral:
-            "FXNews can send alerts on this device."
+            "FX News can send alerts on this device."
         case .notDetermined:
-            "FXNews will ask for notification permission when you continue."
+            "FX News will ask for notification permission when you continue."
         @unknown default:
-            "FXNews will check your notification access when you continue."
+            "FX News will check your notification access when you continue."
         }
     }
 }

@@ -808,7 +808,7 @@ private struct EconomicEventDetailView: View {
     }
 
     private var sourceAttribution: String {
-        "Source: FXNews calendar feed"
+        "Source: FX News calendar feed"
     }
 
     private var eventTypeLabel: String {
@@ -1375,7 +1375,7 @@ private struct EventShareCard: View {
             FXNewsPalette.backgroundTop
 
             VStack(alignment: .leading, spacing: 20) {
-                Text("FXNews")
+                Text("FX News")
                     .font(.caption.weight(.semibold))
                     .tracking(1.2)
                     .foregroundStyle(FXNewsPalette.muted)
@@ -1804,7 +1804,7 @@ private enum CalendarNotificationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .authorizationDenied:
-            "Notifications are disabled for FXNews."
+            "Notifications are disabled for FX News."
         case .eventAlreadyStarted:
             "This event has already started, so a reminder cannot be scheduled."
         case .reminderTimePassed:
