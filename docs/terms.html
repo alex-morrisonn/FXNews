@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FXNews Terms of Service</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg-top: #f2f5f0;
+            --bg-bottom: #e6ebe6;
+            --surface: rgba(255, 255, 255, 0.9);
+            --surface-strong: rgba(245, 248, 250, 0.95);
+            --text: #1c231f;
+            --muted: #5d6760;
+            --accent: #126a8b;
+            --accent-soft: rgba(131, 192, 214, 0.18);
+            --stroke: rgba(17, 20, 18, 0.08);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-top: #020304;
+                --bg-bottom: #090d10;
+                --surface: rgba(13, 15, 18, 0.92);
+                --surface-strong: rgba(20, 25, 30, 0.94);
+                --text: #e1e8ee;
+                --muted: #8f98a1;
+                --accent: #19a0bc;
+                --accent-soft: rgba(24, 60, 73, 0.55);
+                --stroke: rgba(255, 255, 255, 0.08);
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 28px 16px 40px;
+            background:
+                radial-gradient(circle at top left, var(--accent-soft), transparent 28%),
+                linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+            color: var(--text);
+            font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .page {
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        .hero,
+        .card {
+            border: 1px solid var(--stroke);
+            border-radius: 22px;
+            background: var(--surface);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .hero {
+            padding: 28px;
+            margin-bottom: 14px;
+        }
+
+        .card {
+            padding: 22px;
+            margin-bottom: 12px;
+        }
+
+        .nav,
+        .footer-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .nav {
+            margin-top: 18px;
+        }
+
+        .footer-nav {
+            margin-top: 10px;
+        }
+
+        .nav a,
+        .footer-nav a {
+            display: inline-flex;
+            align-items: center;
+            min-height: 36px;
+            padding: 0 12px;
+            border: 1px solid var(--stroke);
+            border-radius: 999px;
+            background: var(--surface-strong);
+            color: var(--text);
+            font-size: 0.95rem;
+            text-decoration: none;
+        }
+
+        .eyebrow {
+            margin: 0 0 8px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: clamp(2rem, 4vw, 2.5rem);
+            line-height: 1.05;
+        }
+
+        h2 {
+            margin: 0 0 8px;
+            font-size: 1.05rem;
+            line-height: 1.2;
+        }
+
+        p {
+            margin: 0;
+        }
+
+        .subhead,
+        .meta {
+            color: var(--muted);
+        }
+
+        .meta {
+            margin-top: 12px;
+            font-size: 0.95rem;
+        }
+
+        .grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        @media (min-width: 720px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .contact {
+            background: var(--surface-strong);
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .nav a:hover,
+        .footer-nav a:hover {
+            text-decoration: none;
+            border-color: color-mix(in srgb, var(--accent) 35%, var(--stroke));
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <section class="hero">
+            <p class="eyebrow">FXNews</p>
+            <h1>Terms of Service</h1>
+            <p class="subhead">FXNews is an informational app for viewing scheduled economic events and setting reminders. It is not a brokerage service and does not provide financial advice.</p>
+            <p class="meta">Last updated: April 16, 2026</p>
+            <nav class="nav" aria-label="Document navigation">
+                <a href="./privacy.html">Privacy</a>
+                <a href="./terms.html">Terms</a>
+                <a href="./support.html">Support</a>
+            </nav>
+        </section>
+
+        <section class="grid">
+            <article class="card">
+                <h2>Using FXNews</h2>
+                <p>You may use FXNews as a personal informational tool. Please use the app lawfully and responsibly.</p>
+            </article>
+
+            <article class="card">
+                <h2>No Financial Advice</h2>
+                <p>FXNews does not provide investment, trading, legal, or tax advice. Any decisions you make remain your responsibility.</p>
+            </article>
+
+            <article class="card">
+                <h2>Availability</h2>
+                <p>Features, data sources, and app availability may change over time. Calendar information may occasionally be delayed, incomplete, or unavailable.</p>
+            </article>
+
+            <article class="card">
+                <h2>Liability</h2>
+                <p>FXNews is provided on an “as is” and “as available” basis, to the extent permitted by law.</p>
+            </article>
+        </section>
+
+        <section class="card contact">
+            <h2>Questions</h2>
+            <p>If you have questions about these terms, contact <a href="mailto:feedback@fxnews.app">feedback@fxnews.app</a>.</p>
+            <nav class="footer-nav" aria-label="Related documents">
+                <a href="./privacy.html">Privacy Policy</a>
+                <a href="./support.html">Support</a>
+            </nav>
+        </section>
+    </main>
+</body>
+</html>
