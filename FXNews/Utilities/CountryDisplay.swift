@@ -15,4 +15,14 @@ enum CountryDisplay {
 
         return String(String.UnicodeScalarView(scalars))
     }
+
+    static func name(for countryCode: String) -> String {
+        let normalizedCode = countryCode.uppercased()
+
+        if normalizedCode == "EU" {
+            return "Euro Area"
+        }
+
+        return Locale.current.localizedString(forRegionCode: normalizedCode) ?? normalizedCode
+    }
 }

@@ -84,19 +84,19 @@ struct CalendarView: View {
 
         switch preferences.minimumImpact {
         case .high:
-            filters.append("High only")
+            filters.append("High impact")
         case .medium:
-            filters.append("High + Medium")
+            filters.append("Market movers")
         case .low:
             break
         }
 
         if let currency = preferences.selectedCurrencyCode {
-            filters.append(currency)
+            filters.append("\(currency) events")
         }
 
         if let country = preferences.selectedCountryCode {
-            filters.append(country)
+            filters.append(CountryDisplay.name(for: country))
         }
 
         if let category = preferences.selectedCategory {
@@ -104,7 +104,7 @@ struct CalendarView: View {
         }
 
         if preferences.showOnlyWatchedPairs {
-            filters.append("Traded pairs")
+            filters.append("Watchlist")
         }
 
         return filters
@@ -117,26 +117,42 @@ struct CalendarView: View {
             return "All events"
         }
 
-        if preferences.showOnlyWatchedPairs, filterCount == 1 {
-            return "Traded pairs"
+        if filterCount <= 2 {
+            return activeFilterDescriptions.joined(separator: " • ")
         }
 
-        if filterCount == 1 {
-            return "1 filter active"
-        }
-
-        return "\(filterCount) filters active"
+        return "\(activeFilterDescriptions[0]) + \(filterCount - 1) more"
     }
 
     private var impactFilterLabel: String {
         switch preferences.minimumImpact {
         case .high:
-            "High only"
+            "High impact"
         case .medium:
-            "High + Medium"
+            "Market movers"
         case .low:
-            "All"
+            "All events"
         }
+    }
+
+    private var selectedCurrencyLabel: String {
+        preferences.selectedCurrencyCode ?? "Any"
+    }
+
+    private var selectedCountryLabel: String {
+        guard let countryCode = preferences.selectedCountryCode else {
+            return "Any"
+        }
+
+        return CountryDisplay.name(for: countryCode)
+    }
+
+    private var selectedCategoryLabel: String {
+        preferences.selectedCategory ?? "Any"
+    }
+
+    private var watchlistFilterLabel: String {
+        preferences.showOnlyWatchedPairs ? "Watchlist only" : "All pairs"
     }
 
     private var weekTitle: String {
@@ -394,38 +410,59 @@ struct CalendarView: View {
     private var filterControls: some View {
         HStack(spacing: 12) {
             Menu {
-                Section("Impact") {
-                    Button("All") { preferences.minimumImpact = .low }
-                    Button("High + Medium") { preferences.minimumImpact = .medium }
-                    Button("High only") { preferences.minimumImpact = .high }
-                }
+                Section("Quick filters") {
+                    Button("All events") { clearFilters() }
+                    Button("Market movers") { preferences.minimumImpact = .medium }
+                    Button("High-impact only") { preferences.minimumImpact = .high }
 
-                Section("Currency") {
-                    Button("All currencies") { preferences.selectedCurrencyCode = nil }
-                    ForEach(availableCurrencies, id: \.self) { currency in
-                        Button(currency) { preferences.selectedCurrencyCode = currency }
-                    }
-                }
-
-                Section("Country") {
-                    Button("All countries") { preferences.selectedCountryCode = nil }
-                    ForEach(availableCountries, id: \.self) { country in
-                        Button("\(CountryDisplay.flag(for: country)) \(country)") {
-                            preferences.selectedCountryCode = country
+                    if !preferences.watchedPairSymbols.isEmpty {
+                        Button(preferences.showOnlyWatchedPairs ? "Show all pairs" : "Watchlist only") {
+                            preferences.showOnlyWatchedPairs.toggle()
                         }
                     }
                 }
 
-                Section("Category") {
-                    Button("All categories") { preferences.selectedCategory = nil }
-                    ForEach(availableCategories, id: \.self) { category in
-                        Button(category) { preferences.selectedCategory = category }
+                Menu("Importance: \(impactFilterLabel)") {
+                    Button("All events") { preferences.minimumImpact = .low }
+                    Button("Market movers") { preferences.minimumImpact = .medium }
+                    Button("High-impact only") { preferences.minimumImpact = .high }
+                }
+
+                Menu("Location") {
+                    Menu("Currency: \(selectedCurrencyLabel)") {
+                        Button("Any currency") { preferences.selectedCurrencyCode = nil }
+                        ForEach(availableCurrencies, id: \.self) { currency in
+                            Button(currency) { preferences.selectedCurrencyCode = currency }
+                        }
+                    }
+
+                    Menu("Country: \(selectedCountryLabel)") {
+                        Button("Any country") { preferences.selectedCountryCode = nil }
+                        ForEach(availableCountries, id: \.self) { country in
+                            Button("\(CountryDisplay.flag(for: country)) \(CountryDisplay.name(for: country))") {
+                                preferences.selectedCountryCode = country
+                            }
+                        }
                     }
                 }
 
-                Section("Pairs") {
-                    Button(preferences.showOnlyWatchedPairs ? "Show all pairs" : "Traded pairs only") {
-                        preferences.showOnlyWatchedPairs.toggle()
+                if !availableCategories.isEmpty {
+                    Menu("Category: \(selectedCategoryLabel)") {
+                        Button("Any category") { preferences.selectedCategory = nil }
+                        ForEach(availableCategories, id: \.self) { category in
+                            Button(category) { preferences.selectedCategory = category }
+                        }
+                    }
+                }
+
+                if !preferences.watchedPairSymbols.isEmpty {
+                    Menu("Pairs: \(watchlistFilterLabel)") {
+                        Button("All pairs") {
+                            preferences.showOnlyWatchedPairs = false
+                        }
+                        Button("Watchlist only") {
+                            preferences.showOnlyWatchedPairs = true
+                        }
                     }
                 }
             } label: {
@@ -648,16 +685,36 @@ private struct EconomicEventRow: View {
     let preferences: UserPreferences
     let isNotificationScheduled: Bool
 
+    private var isPastEvent: Bool {
+        event.timestamp < Date()
+    }
+
     private var eventTypeLabel: String {
         event.isHoliday ? "Holiday" : event.impactLevel.label
     }
 
     private var eventTypeColor: Color {
-        event.isHoliday ? .gray : event.impactLevel.color
+        if isPastEvent {
+            return FXNewsPalette.muted
+        }
+
+        return event.isHoliday ? .gray : event.impactLevel.color
     }
 
     private var eventDotColor: Color {
-        event.isHoliday ? .gray : event.impactLevel.color
+        if isPastEvent {
+            return FXNewsPalette.muted
+        }
+
+        return event.isHoliday ? .gray : event.impactLevel.color
+    }
+
+    private var primaryTextColor: Color {
+        isPastEvent ? FXNewsPalette.muted : FXNewsPalette.text
+    }
+
+    private var secondaryTextColor: Color {
+        isPastEvent ? FXNewsPalette.muted.opacity(0.82) : FXNewsPalette.muted
     }
 
     var body: some View {
@@ -672,7 +729,7 @@ private struct EconomicEventRow: View {
                         )
                     )
                     .font(.headline.monospacedDigit().weight(.bold))
-                    .foregroundStyle(FXNewsPalette.text)
+                    .foregroundStyle(primaryTextColor)
                     .frame(width: 72, alignment: .leading)
 
                     Circle()
@@ -685,12 +742,12 @@ private struct EconomicEventRow: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 FXNewsPill(
                                     text: "Affects \(event.currencyCode)",
-                                    tint: FXNewsPalette.accentSoft
+                                    tint: isPastEvent ? FXNewsPalette.surfaceStrong : FXNewsPalette.accentSoft
                                 )
 
                                 Text(event.title)
                                     .font(.headline)
-                                    .foregroundStyle(FXNewsPalette.text)
+                                    .foregroundStyle(primaryTextColor)
                                     .multilineTextAlignment(.leading)
 
                                 rowMetadata
@@ -701,7 +758,7 @@ private struct EconomicEventRow: View {
                             if isNotificationScheduled {
                                 Image(systemName: "bell.fill")
                                     .font(.caption.weight(.bold))
-                                    .foregroundStyle(FXNewsPalette.accent)
+                                    .foregroundStyle(isPastEvent ? FXNewsPalette.muted : FXNewsPalette.accent)
                             }
                         }
 
@@ -710,6 +767,7 @@ private struct EconomicEventRow: View {
                 }
             }
         }
+        .opacity(isPastEvent ? 0.58 : 1)
     }
 
     private var rowMetadata: some View {
@@ -721,7 +779,7 @@ private struct EconomicEventRow: View {
             if let category = event.category {
                 Text(category)
                     .font(.caption)
-                    .foregroundStyle(FXNewsPalette.muted)
+                    .foregroundStyle(secondaryTextColor)
                     .lineLimit(1)
             }
         }
@@ -771,11 +829,11 @@ private struct EconomicEventRow: View {
         HStack(spacing: 6) {
             Text(label)
                 .font(.caption)
-                .foregroundStyle(FXNewsPalette.muted)
+                .foregroundStyle(secondaryTextColor)
             Text(value)
                 .font(.caption.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(FXNewsPalette.text)
+                .foregroundStyle(primaryTextColor)
                 .lineLimit(1)
         }
     }

@@ -268,15 +268,8 @@ final class RemoteCalendarService: CalendarService {
     private static var shouldPreferBundledSourceFromRuntimeConfiguration: Bool {
         #if DEBUG
         let processInfo = ProcessInfo.processInfo
-        if processInfo.arguments.contains("-FXNewsUseRemoteCalendar") {
-            return false
-        }
-
-        if processInfo.environment["FXNEWS_USE_REMOTE_CALENDAR"] == "1" {
-            return false
-        }
-
-        return true
+        return processInfo.arguments.contains("-FXNewsUseBundledCalendar")
+            || processInfo.environment["FXNEWS_USE_BUNDLED_CALENDAR"] == "1"
         #else
         return false
         #endif

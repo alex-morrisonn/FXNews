@@ -8,4 +8,10 @@ struct CountryDisplayTests {
         #expect(CountryDisplay.flag(for: "us") == "🇺🇸")
         #expect(CountryDisplay.flag(for: "GB") == "🇬🇧")
     }
+
+    @Test
+    func nameUsesFriendlyRegionNames() {
+        #expect(CountryDisplay.name(for: "EU") == "Euro Area")
+        #expect(!CountryDisplay.name(for: "US").isEmpty)
+    }
 }

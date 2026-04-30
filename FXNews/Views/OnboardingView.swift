@@ -8,6 +8,7 @@ struct OnboardingView: View {
     let onFinish: () -> Void
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
     @State private var step: OnboardingStep = .welcome
     @State private var selectedPairs: Set<String> = []
     @State private var notificationAuthorizationStatus: UNAuthorizationStatus = .notDetermined
@@ -101,6 +102,8 @@ struct OnboardingView: View {
                 FXNewsHaptics.selection()
                 step = .pairs
             }
+
+            onboardingLinks
         }
     }
 
@@ -207,6 +210,27 @@ struct OnboardingView: View {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(FXNewsPalette.accent)
                 )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var onboardingLinks: some View {
+        HStack(spacing: 14) {
+            onboardingLinkButton(title: "Privacy", urlString: AppExternalLinks.privacyPolicyURL)
+            onboardingLinkButton(title: "Terms", urlString: AppExternalLinks.termsOfServiceURL)
+            onboardingLinkButton(title: "Support", urlString: AppExternalLinks.supportURL)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(FXNewsPalette.muted)
+    }
+
+    private func onboardingLinkButton(title: String, urlString: String) -> some View {
+        Button {
+            guard let url = URL(string: urlString) else { return }
+            openURL(url)
+        } label: {
+            Text(title)
+                .underline()
         }
         .buttonStyle(.plain)
     }

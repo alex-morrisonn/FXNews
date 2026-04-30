@@ -75,9 +75,13 @@ struct AppSettingsView: View {
     private var notificationPreferencesCard: some View {
         FXNewsCard {
             VStack(alignment: .leading, spacing: 18) {
-                Text("Notifications")
+                Text("Event Reminders")
                     .font(.headline)
                     .foregroundStyle(FXNewsPalette.text)
+
+                Text("Choose the automatic reminder timing for calendar events. Session open alerts are managed on the Sessions tab.")
+                    .font(.subheadline)
+                    .foregroundStyle(FXNewsPalette.muted)
 
                 FXNewsInfoRow(label: "Notification access", value: notificationAuthorizationLabel)
 
@@ -97,20 +101,7 @@ struct AppSettingsView: View {
                 leadTimePicker(title: "Medium impact", selection: $preferences.mediumImpactNotificationLeadTimeMinutes)
                 leadTimePicker(title: "Low impact", selection: $preferences.lowImpactNotificationLeadTimeMinutes)
 
-                FXNewsInfoRow(label: "Custom reminders", value: "Set a different reminder time from any event.")
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Sound")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(FXNewsPalette.text)
-
-                    Picker("Sound", selection: $preferences.notificationSoundOption) {
-                        ForEach(NotificationSoundOption.allCases) { option in
-                            Text(option.label).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
+                FXNewsInfoRow(label: "Custom reminders", value: "Open any event and tap Set Reminder for a one-off alert.")
 
                 FXNewsToggleRow(
                     title: "Quiet hours",
@@ -215,11 +206,14 @@ struct AppSettingsView: View {
                     } ?? "No refresh yet"
                 )
 
-                FXNewsInfoRow(label: "Data source", value: "FX News calendar feed")
+                FXNewsInfoRow(label: "Data source", value: dataSourceLabel)
 
                 Button {
                     Task {
                         await viewModel.refresh()
+                        cacheMessage = viewModel.errorMessage == nil
+                            ? "Calendar refreshed."
+                            : (viewModel.errorMessage ?? "Refresh failed.")
                     }
                 } label: {
                     settingsActionButtonLabel(title: "Refresh Now", tint: FXNewsPalette.accent)
@@ -227,11 +221,14 @@ struct AppSettingsView: View {
                 .buttonStyle(.plain)
 
                 Button {
-                    do {
-                        try viewModel.clearCache()
-                        cacheMessage = "Saved calendar data was cleared."
-                    } catch {
-                        cacheMessage = error.localizedDescription
+                    Task {
+                        do {
+                            try viewModel.clearCache()
+                            await viewModel.refresh()
+                            cacheMessage = "Saved calendar data was cleared."
+                        } catch {
+                            cacheMessage = error.localizedDescription
+                        }
                     }
                 } label: {
                     settingsActionButtonLabel(title: "Clear Cache", tint: Color.red.opacity(0.82))
@@ -358,6 +355,19 @@ struct AppSettingsView: View {
         return "\(version) (\(build))"
     }
 
+    private var dataSourceLabel: String {
+        switch viewModel.dataSource {
+        case .remote:
+            "Live remote feed"
+        case .cache:
+            viewModel.isShowingFallbackData ? "Cached fallback data" : "Local cache"
+        case .bundled:
+            "Bundled sample feed"
+        case nil:
+            "Not loaded yet"
+        }
+    }
+
     private func settingsActionButtonLabel(title: String, tint: Color) -> some View {
         Text(title)
             .font(.subheadline.weight(.semibold))
@@ -480,7 +490,7 @@ struct AppSettingsView: View {
     }
 }
 
-private enum AppExternalLinks {
+enum AppExternalLinks {
     static let githubPagesBaseURL = "https://alex-morrisonn.github.io/FXNews"
     static let privacyPolicyURL = githubPagesBaseURL + "/privacy.html"
     static let termsOfServiceURL = githubPagesBaseURL + "/terms.html"
