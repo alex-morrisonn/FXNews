@@ -1,7 +1,7 @@
 import SwiftUI
 
 @MainActor
-struct PairsPlaceholderView: View {
+struct PairsImpactView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     let viewModel: CalendarViewModel
@@ -1082,7 +1082,7 @@ enum PairCatalogCategory: String, CaseIterable, Identifiable {
     preferences.watchedPairSymbols = ["EURUSD", "GBPUSD", "USDJPY"]
 
     return NavigationStack {
-        PairsPlaceholderView(
+        PairsImpactView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
             preferences: preferences
         )
@@ -1094,7 +1094,7 @@ enum PairCatalogCategory: String, CaseIterable, Identifiable {
     preferences.watchedPairSymbols = ["EURUSD", "GBPUSD", "USDJPY"]
 
     return NavigationStack {
-        PairsPlaceholderView(
+        PairsImpactView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
             preferences: preferences
         )

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import FXNews
 
+@MainActor
 struct RemoteCalendarServiceTests {
     @Test
     func refreshBypassesFreshCacheAndClearCacheRemovesStoredResponse() async throws {

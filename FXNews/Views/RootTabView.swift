@@ -27,7 +27,7 @@ struct RootTabView: View {
 
             tabLayer(.pairs) {
                 NavigationStack {
-                    PairsPlaceholderView(viewModel: viewModel, preferences: preferences)
+                    PairsImpactView(viewModel: viewModel, preferences: preferences)
                 }
             }
 

@@ -319,9 +319,7 @@ struct CalendarView: View {
             } message: {
                 Text(notificationAlertMessage ?? "")
             }
-            .sheet(item: $routedEvent, onDismiss: {
-                navigationState.pendingEventID = nil
-            }) { event in
+            .sheet(item: $routedEvent) { event in
                 NavigationStack {
                     EconomicEventDetailView(event: event, preferences: preferences)
                 }
@@ -665,18 +663,22 @@ struct CalendarView: View {
         }
 
         if let matchedEvent = viewModel.events.first(where: { $0.id == eventID }) {
-            navigationState.selectedTab = .calendar
-            routedEvent = matchedEvent
+            consumePendingEvent(matchedEvent)
             return
         }
 
         Task {
             await viewModel.loadCurrentWeek(timeZone: displayTimeZone)
             if let matchedEvent = viewModel.events.first(where: { $0.id == eventID }) {
-                navigationState.selectedTab = .calendar
-                routedEvent = matchedEvent
+                consumePendingEvent(matchedEvent)
             }
         }
+    }
+
+    private func consumePendingEvent(_ event: EconomicEvent) {
+        navigationState.selectedTab = .calendar
+        navigationState.pendingEventID = nil
+        routedEvent = event
     }
 }
 

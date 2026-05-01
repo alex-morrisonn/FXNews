@@ -158,6 +158,24 @@ struct UserPreferencesTests {
     }
 
     @Test
+    func quietHoursIncludeAfterMidnightTimesForOvernightWindows() throws {
+        let preferences = UserPreferences(defaults: makeDefaults())
+        preferences.quietHoursEnabled = true
+        preferences.quietHoursStartMinutes = 22 * 60
+        preferences.quietHoursEndMinutes = 6 * 60
+
+        let formatter = ISO8601DateFormatter()
+        let london = try #require(TimeZone(identifier: "Europe/London"))
+        let afterMidnight = try #require(formatter.date(from: "2026-01-15T00:30:00Z"))
+        let justBeforeEnd = try #require(formatter.date(from: "2026-01-15T05:59:00Z"))
+        let atEnd = try #require(formatter.date(from: "2026-01-15T06:00:00Z"))
+
+        #expect(preferences.isWithinQuietHours(on: afterMidnight, timeZone: london))
+        #expect(preferences.isWithinQuietHours(on: justBeforeEnd, timeZone: london))
+        #expect(!preferences.isWithinQuietHours(on: atEnd, timeZone: london))
+    }
+
+    @Test
     func quietHoursHandleSameDayWindowsAndDisabledState() throws {
         let preferences = UserPreferences(defaults: makeDefaults())
         preferences.quietHoursStartMinutes = 9 * 60
