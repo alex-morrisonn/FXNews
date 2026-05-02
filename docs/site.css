@@ -319,6 +319,11 @@ li,
     text-align: center;
 }
 
+.site-footer .footer-nav {
+    justify-content: center;
+    margin-top: 18px;
+}
+
 .footer-brand strong,
 .footer-brand span {
     display: block;
