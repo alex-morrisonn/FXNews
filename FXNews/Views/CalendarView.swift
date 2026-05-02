@@ -10,6 +10,7 @@ struct CalendarView: View {
 
     @State private var weekOffset = 0
     @State private var collapsedDays: Set<Date> = []
+    @State private var expandedPastEventDays: Set<Date> = []
     @State private var scheduledNotificationEventIDs: Set<String> = []
     @State private var todayHeaderOffset: CGFloat?
     @State private var hasPerformedInitialTodayScroll = false
@@ -155,6 +156,10 @@ struct CalendarView: View {
         preferences.showOnlyWatchedPairs ? "Watchlist only" : "All pairs"
     }
 
+    private var recentEventCutoff: Date {
+        Date().addingTimeInterval(-90 * 60)
+    }
+
     private var weekTitle: String {
         guard let friday = calendar.date(byAdding: .day, value: 4, to: weekInterval.start) else {
             return EventDateFormatter.monthDayString(from: weekInterval.start, timeZone: displayTimeZone)
@@ -199,19 +204,16 @@ struct CalendarView: View {
 
                         freshnessBanner
 
-                        if let lastRefreshDate = viewModel.lastRefreshDate {
-                            Text(lastUpdatedLabel(for: lastRefreshDate))
-                                .font(.caption)
-                                .foregroundStyle(FXNewsPalette.muted)
-                        }
-
                         if let emptyState {
                             emptyStateCard(emptyState)
                         } else {
                             ForEach(weekdaySections) { section in
                                 Section {
                                     if !collapsedDays.contains(section.day) {
-                                        if section.events.isEmpty {
+                                        let visibleEvents = visibleEvents(for: section)
+                                        let foldedEvents = foldedEvents(for: section)
+
+                                        if visibleEvents.isEmpty && foldedEvents.isEmpty {
                                             FXNewsCard {
                                                 Text("No scheduled releases.")
                                                     .font(.subheadline)
@@ -219,25 +221,10 @@ struct CalendarView: View {
                                             }
                                         } else {
                                             VStack(spacing: 12) {
-                                                ForEach(section.events) { event in
-                                                    let isNotificationScheduled = scheduledNotificationEventIDs.contains(event.id)
-                                                    NavigationLink {
-                                                        EconomicEventDetailView(event: event, preferences: preferences)
-                                                    } label: {
-                                                        EconomicEventRow(
-                                                            event: event,
-                                                            preferences: preferences,
-                                                            isNotificationScheduled: isNotificationScheduled
-                                                        )
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                    .contextMenu {
-                                                        Button(isNotificationScheduled ? "Remove notification" : "Notify me") {
-                                                            Task {
-                                                                await toggleNotification(for: event)
-                                                            }
-                                                        }
-                                                    }
+                                                eventList(visibleEvents)
+
+                                                if !foldedEvents.isEmpty {
+                                                    foldedEventsGroup(for: section, events: foldedEvents)
                                                 }
                                             }
                                         }
@@ -286,6 +273,7 @@ struct CalendarView: View {
             }
             .task(id: displayTimeZone.identifier) {
                 collapsedDays.removeAll()
+                expandedPastEventDays.removeAll()
                 await loadVisibleWeek(using: proxy)
             }
             .task {
@@ -307,6 +295,7 @@ struct CalendarView: View {
             }
             .onChange(of: weekOffset) { _, _ in
                 collapsedDays.removeAll()
+                expandedPastEventDays.removeAll()
             }
             .onAppear {
                 routeToPendingEventIfNeeded()
@@ -359,50 +348,83 @@ struct CalendarView: View {
 
     @ViewBuilder
     private var freshnessBanner: some View {
-        if let message = freshnessBannerMessage {
+        if let freshness = freshnessStatus {
             FXNewsCard {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "wifi.slash")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.orange.opacity(0.9))
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: freshness.iconName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(freshness.tint)
 
-                    Text(message)
-                        .font(.subheadline)
-                        .foregroundStyle(FXNewsPalette.text)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(freshness.title)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(FXNewsPalette.text)
+
+                            Text(freshness.timestampLabel)
+                                .font(.caption)
+                                .foregroundStyle(FXNewsPalette.muted)
+                        }
+                    }
+
+                    if let message = freshness.message {
+                        Text(message)
+                            .font(.subheadline)
+                            .foregroundStyle(FXNewsPalette.text)
+                    }
                 }
             }
         }
     }
 
-    private var freshnessBannerMessage: String? {
-        guard viewModel.isShowingFallbackData else {
+    private var freshnessStatus: FreshnessStatus? {
+        guard let lastRefreshDate = viewModel.lastRefreshDate else {
             return nil
         }
 
-        switch viewModel.dataSource {
-        case .cache:
-            return "Offline or unable to refresh. Showing cached calendar data that may be outdated."
-        case .bundled:
-            return "Offline or unable to refresh. Showing bundled calendar data that may be outdated."
-        case .remote, nil:
-            return nil
-        }
-    }
+        let age = max(0, Date().timeIntervalSince(lastRefreshDate))
+        let isStale = age >= 3 * 24 * 60 * 60
+        let usesFallbackData = viewModel.isShowingFallbackData
 
-    private func lastUpdatedLabel(for date: Date) -> String {
-        let prefix: String
-        switch viewModel.dataSource {
-        case .remote:
-            prefix = "Feed updated"
-        case .cache:
-            prefix = viewModel.isShowingFallbackData ? "Cached feed from" : "Feed updated"
-        case .bundled:
-            prefix = "Bundled feed from"
-        case nil:
-            prefix = "Updated"
+        let title: String
+        if usesFallbackData {
+            title = isStale ? "Calendar may be outdated" : "Showing fallback calendar data"
+        } else {
+            title = isStale ? "Calendar data is stale" : "Last updated"
         }
 
-        return "\(prefix) \(EventDateFormatter.relativeString(for: date))"
+        let message: String?
+        if usesFallbackData {
+            switch viewModel.dataSource {
+            case .cache:
+                message = "Couldn’t refresh from the network, so the app is showing cached data."
+            case .bundled:
+                message = "Couldn’t refresh from the network, so the app is showing bundled backup data."
+            case .remote, nil:
+                message = nil
+            }
+        } else if isStale {
+            message = "This feed is more than 3 days old. Pull to refresh before trading off these releases."
+        } else {
+            message = nil
+        }
+
+        let tint: Color = usesFallbackData || isStale ? Color.orange.opacity(0.9) : FXNewsPalette.accent
+        let iconName = usesFallbackData ? "wifi.slash" : (isStale ? "exclamationmark.triangle" : "clock.arrow.circlepath")
+        let absolute = EventDateFormatter.dateTimeString(
+            from: lastRefreshDate,
+            timeZone: displayTimeZone,
+            use24HourTime: preferences.use24HourTime
+        )
+        let relative = EventDateFormatter.relativeString(for: lastRefreshDate)
+
+        return FreshnessStatus(
+            title: title,
+            timestampLabel: "\(absolute) • \(relative)",
+            message: message,
+            tint: tint,
+            iconName: iconName
+        )
     }
 
     private var filterControls: some View {
@@ -583,6 +605,91 @@ struct CalendarView: View {
         preferences.showOnlyWatchedPairs = false
     }
 
+    private func visibleEvents(for section: DaySection) -> [EconomicEvent] {
+        section.events.filter { $0.timestamp >= recentEventCutoff }
+    }
+
+    private func foldedEvents(for section: DaySection) -> [EconomicEvent] {
+        section.events.filter { $0.timestamp < recentEventCutoff }
+    }
+
+    @ViewBuilder
+    private func eventList(_ events: [EconomicEvent]) -> some View {
+        ForEach(events) { event in
+            let isNotificationScheduled = scheduledNotificationEventIDs.contains(event.id)
+            NavigationLink {
+                EconomicEventDetailView(event: event, preferences: preferences)
+            } label: {
+                EconomicEventRow(
+                    event: event,
+                    preferences: preferences,
+                    isNotificationScheduled: isNotificationScheduled
+                )
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                Button(isNotificationScheduled ? "Remove notification" : "Notify me") {
+                    Task {
+                        await toggleNotification(for: event)
+                    }
+                }
+            }
+        }
+    }
+
+    private func foldedEventsGroup(for section: DaySection, events: [EconomicEvent]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                toggleFoldedEvents(for: section.day)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: isShowingFoldedEvents(for: section.day) ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(FXNewsPalette.muted)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isShowingFoldedEvents(for: section.day) ? "Hide earlier releases" : "Show earlier releases")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(FXNewsPalette.text)
+
+                        Text("\(events.count) event\(events.count == 1 ? "" : "s") already passed")
+                            .font(.caption)
+                            .foregroundStyle(FXNewsPalette.muted)
+                    }
+
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(FXNewsPalette.surface)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(FXNewsPalette.stroke, lineWidth: 1)
+                        }
+                )
+            }
+            .buttonStyle(.plain)
+
+            if isShowingFoldedEvents(for: section.day) {
+                eventList(events)
+            }
+        }
+    }
+
+    private func isShowingFoldedEvents(for day: Date) -> Bool {
+        expandedPastEventDays.contains(day)
+    }
+
+    private func toggleFoldedEvents(for day: Date) {
+        if expandedPastEventDays.contains(day) {
+            expandedPastEventDays.remove(day)
+        } else {
+            expandedPastEventDays.insert(day)
+        }
+    }
+
     private func loadVisibleWeek(using proxy: ScrollViewProxy) async {
         await viewModel.loadWeek(referenceDate: Date(), weekOffset: weekOffset, timeZone: displayTimeZone)
 
@@ -680,6 +787,14 @@ struct CalendarView: View {
         navigationState.pendingEventID = nil
         routedEvent = event
     }
+}
+
+private struct FreshnessStatus {
+    let title: String
+    let timestampLabel: String
+    let message: String?
+    let tint: Color
+    let iconName: String
 }
 
 private struct EconomicEventRow: View {

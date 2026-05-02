@@ -4,227 +4,104 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FXNews Privacy Policy</title>
-    <style>
-        :root {
-            color-scheme: light dark;
-            --bg-top: #f2f5f0;
-            --bg-bottom: #e6ebe6;
-            --surface: rgba(255, 255, 255, 0.9);
-            --surface-strong: rgba(245, 248, 250, 0.95);
-            --text: #1c231f;
-            --muted: #5d6760;
-            --accent: #126a8b;
-            --accent-soft: rgba(131, 192, 214, 0.18);
-            --stroke: rgba(17, 20, 18, 0.08);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-top: #020304;
-                --bg-bottom: #090d10;
-                --surface: rgba(13, 15, 18, 0.92);
-                --surface-strong: rgba(20, 25, 30, 0.94);
-                --text: #e1e8ee;
-                --muted: #8f98a1;
-                --accent: #19a0bc;
-                --accent-soft: rgba(24, 60, 73, 0.55);
-                --stroke: rgba(255, 255, 255, 0.08);
-            }
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            padding: 28px 16px 40px;
-            background:
-                radial-gradient(circle at top left, var(--accent-soft), transparent 28%),
-                linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
-            color: var(--text);
-            font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-
-        .page {
-            max-width: 760px;
-            margin: 0 auto;
-        }
-
-        .hero,
-        .card {
-            border: 1px solid var(--stroke);
-            border-radius: 22px;
-            background: var(--surface);
-            backdrop-filter: blur(12px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
-        }
-
-        .hero {
-            padding: 28px;
-            margin-bottom: 14px;
-        }
-
-        .card {
-            padding: 22px;
-            margin-bottom: 12px;
-        }
-
-        .nav,
-        .footer-nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .nav {
-            margin-top: 18px;
-        }
-
-        .footer-nav {
-            margin-top: 10px;
-        }
-
-        .nav a,
-        .footer-nav a {
-            display: inline-flex;
-            align-items: center;
-            min-height: 36px;
-            padding: 0 12px;
-            border: 1px solid var(--stroke);
-            border-radius: 999px;
-            background: var(--surface-strong);
-            color: var(--text);
-            font-size: 0.95rem;
-            text-decoration: none;
-        }
-
-        .eyebrow {
-            margin: 0 0 8px;
-            color: var(--muted);
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-        }
-
-        h1 {
-            margin: 0 0 10px;
-            font-size: clamp(2rem, 4vw, 2.5rem);
-            line-height: 1.05;
-        }
-
-        h2 {
-            margin: 0 0 8px;
-            font-size: 1.05rem;
-            line-height: 1.2;
-        }
-
-        p {
-            margin: 0;
-        }
-
-        .subhead,
-        .meta {
-            color: var(--muted);
-        }
-
-        .meta {
-            margin-top: 12px;
-            font-size: 0.95rem;
-        }
-
-        .grid {
-            display: grid;
-            gap: 12px;
-        }
-
-        @media (min-width: 720px) {
-            .grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
-        .contact {
-            background: var(--surface-strong);
-        }
-
-        a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
-
-        .nav a:hover,
-        .footer-nav a:hover {
-            text-decoration: none;
-            border-color: color-mix(in srgb, var(--accent) 35%, var(--stroke));
-        }
-    </style>
+    <link rel="stylesheet" href="./site.css">
 </head>
 <body>
     <main class="page">
-        <section class="hero">
-            <p class="eyebrow">FXNews</p>
-            <h1>Privacy Policy</h1>
-            <p class="subhead">FXNews is designed to run without an account. It stores your settings on device, uses local notifications if you enable them, and fetches calendar data so the app can show upcoming economic events and trading-session reminders.</p>
-            <p class="meta">Last updated: June 17, 2026</p>
-            <nav class="nav" aria-label="Document navigation">
-                <a href="./privacy.html">Privacy</a>
-                <a href="./terms.html">Terms</a>
-                <a href="./support.html">Support</a>
+        <header class="shell">
+            <div class="brand-lockup">
+                <div class="brand-mark" aria-hidden="true"></div>
+                <div class="brand-copy">
+                    <strong>FXNews</strong>
+                    <span>Trader Utility</span>
+                </div>
+            </div>
+            <nav class="shell-nav" aria-label="Primary">
+                <a class="nav-link" href="./index.html">Overview</a>
+                <a class="nav-link is-active" href="./privacy.html">Privacy</a>
+                <a class="nav-link" href="./terms.html">Terms</a>
+                <a class="nav-link" href="./support.html">Support</a>
             </nav>
+        </header>
+
+        <section class="hero">
+            <div class="hero-copy">
+                <p class="eyebrow">FXNews</p>
+                <h1>Privacy Policy</h1>
+                <p class="subhead">FXNews is designed to run without an account. It stores your settings on device, uses local notifications if you enable them, and fetches calendar data so the app can show upcoming economic events and trading-session reminders.</p>
+                <div class="pill-row" aria-label="Privacy summary">
+                    <span class="pill">No account required</span>
+                    <span class="pill">On-device settings</span>
+                    <span class="pill">Local notifications</span>
+                </div>
+            </div>
+            <div class="hero-meta">
+                <p class="meta">Last updated: June 17, 2026</p>
+            </div>
         </section>
 
         <section class="grid">
             <article class="card">
+                <p class="section-label">Storage</p>
                 <h2>What FXNews Stores</h2>
                 <p>FXNews stores settings such as watched pairs, impact filters, time format, appearance, selected time zone, onboarding status, and notification preferences on your device. FXNews does not require account creation or profile information to use the app.</p>
             </article>
 
             <article class="card">
+                <p class="section-label">Alerts</p>
                 <h2>Notifications</h2>
                 <p>If you grant permission, FXNews uses local notifications on your device for economic-event reminders and session or overlap reminders. Notification timing, sound preference, and quiet hours are stored locally and can be changed at any time in the app or in iOS Settings.</p>
             </article>
 
             <article class="card">
+                <p class="section-label">Data</p>
                 <h2>Calendar Data</h2>
                 <p>FXNews fetches calendar data from a remote feed and may cache that data locally to improve load time and reliability. Cached data can be cleared from the app's settings screen.</p>
             </article>
 
             <article class="card">
+                <p class="section-label">Collection</p>
                 <h2>What FXNews Does Not Collect</h2>
                 <p>FXNews is not designed to collect names, email addresses, phone numbers, precise location, contacts, photos, or payment details through the app.</p>
             </article>
 
             <article class="card">
+                <p class="section-label">Tracking</p>
                 <h2>Tracking</h2>
                 <p>FXNews does not use third-party advertising SDKs and is not intended to track you across apps or websites.</p>
             </article>
 
             <article class="card">
+                <p class="section-label">Sharing</p>
                 <h2>Sharing</h2>
                 <p>FXNews does not sell your personal information and is not designed to share personal data with advertising networks, data brokers, or third-party analytics providers.</p>
             </article>
 
             <article class="card">
+                <p class="section-label">Retention</p>
                 <h2>Retention and Deletion</h2>
                 <p>Preferences and cached calendar data remain on your device until you clear them in the app where available, reset relevant settings, or delete the app from your device.</p>
             </article>
         </section>
 
         <section class="card contact">
+            <p class="section-label">Contact</p>
             <h2>Questions</h2>
-            <p>If you have privacy-related questions, or want help clearing information stored by the app on your device, contact <a href="mailto:feedback@fxnews.app">feedback@fxnews.app</a>.</p>
-            <nav class="footer-nav" aria-label="Related documents">
+            <div class="stack">
+                <p>If you have privacy-related questions, or want help clearing information stored by the app on your device, contact <a href="mailto:feedback@fxnews.app">feedback@fxnews.app</a>.</p>
+                <a class="inline-link" href="mailto:feedback@fxnews.app">Email privacy support</a>
+            </div>
+        </section>
+
+        <footer class="card site-footer">
+            <p>FXNews</p>
+            <nav class="footer-nav" aria-label="Site footer">
+                <a href="./index.html">Overview</a>
+                <a href="./privacy.html">Privacy Policy</a>
                 <a href="./terms.html">Terms of Service</a>
                 <a href="./support.html">Support</a>
             </nav>
-        </section>
+        </footer>
     </main>
 </body>
 </html>

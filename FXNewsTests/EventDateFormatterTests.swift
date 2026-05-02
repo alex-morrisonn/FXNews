@@ -15,6 +15,15 @@ struct EventDateFormatterTests {
     }
 
     @Test
+    func dateTimeStringUsesSuppliedTimeZoneAndClockFormat() throws {
+        let date = try #require(ISO8601DateFormatter().date(from: "2026-04-14T12:30:00Z"))
+        let newYork = try #require(TimeZone(identifier: "America/New_York"))
+
+        #expect(EventDateFormatter.dateTimeString(from: date, timeZone: newYork, use24HourTime: true) == "Apr 14, 08:30 EDT")
+        #expect(EventDateFormatter.dateTimeString(from: date, timeZone: newYork, use24HourTime: false) == "Apr 14, 8:30 AM EDT")
+    }
+
+    @Test
     func dayStringUsesSuppliedTimeZoneAcrossDateBoundary() throws {
         let date = try #require(ISO8601DateFormatter().date(from: "2026-04-14T23:30:00Z"))
         let newYork = try #require(TimeZone(identifier: "America/New_York"))

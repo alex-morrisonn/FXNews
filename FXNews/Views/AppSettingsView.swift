@@ -248,7 +248,7 @@ struct AppSettingsView: View {
                 FXNewsInfoRow(label: "App version", value: appVersion)
 
                 settingsLinkButton(title: "Send Feedback", action: {
-                    openURL(URL(string: "mailto:feedback@fxnews.app?subject=FX%20News%20Feedback")!)
+                    openURL(URL(string: "mailto:fxnews.app@gmail.com?subject=FX%20News%20Feedback")!)
                 })
 
                 settingsLinkButton(title: "Privacy Policy", action: {
@@ -492,6 +492,7 @@ struct AppSettingsView: View {
 
 enum AppExternalLinks {
     static let githubPagesBaseURL = "https://alex-morrisonn.github.io/FXNews"
+    static let supportEmailURL = "mailto:fxnews.app@gmail.com?subject=FX%20News%20Support"
     static let privacyPolicyURL = githubPagesBaseURL + "/privacy.html"
     static let termsOfServiceURL = githubPagesBaseURL + "/terms.html"
     static let supportURL = githubPagesBaseURL + "/support.html"

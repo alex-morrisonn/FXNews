@@ -46,6 +46,17 @@ enum EventDateFormatter {
         }
     }
 
+    static func dateTimeString(from date: Date, timeZone: TimeZone, use24HourTime: Bool) -> String {
+        string(from: date, cacheKey: dateTimeFormatterKey(timeZone: timeZone, use24HourTime: use24HourTime)) {
+            let formatter = DateFormatter()
+            formatter.calendar = .current
+            formatter.timeZone = timeZone
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = use24HourTime ? "MMM d, HH:mm z" : "MMM d, h:mm a z"
+            return formatter
+        }
+    }
+
     static func relativeString(for date: Date, relativeTo referenceDate: Date = Date()) -> String {
         lock.lock()
         defer { lock.unlock() }
@@ -84,6 +95,10 @@ enum EventDateFormatter {
 
     private static func monthDayFormatterKey(timeZone: TimeZone) -> String {
         "monthDay|\(timeZone.identifier)"
+    }
+
+    private static func dateTimeFormatterKey(timeZone: TimeZone, use24HourTime: Bool) -> String {
+        "dateTime|\(timeZone.identifier)|\(use24HourTime ? "24" : "12")"
     }
 
     private static func timeZone(useUTC: Bool) -> TimeZone {
