@@ -222,19 +222,25 @@ private struct MarketBoardPanel: View {
     let events: [EconomicEvent]
     let displayTimeZone: TimeZone
 
-    @State private var markerDayFractionOverride: Double?
-    @State private var markerDragStartFraction: Double?
+    @State private var markerDateOverride: Date?
+    @State private var markerDragStartDate: Date?
 
     private let rows = MarketBoardDefinition.allCases
     private static let activityService: any MarketActivityService = EstimatedMarketActivityService()
 
     var body: some View {
-        let displayedDate = markerDayFractionOverride.map {
-            SessionPresentation.date(for: $0, onSameDayAs: now, displayTimeZone: displayTimeZone)
-        } ?? now
-        let boardStates = rows.map { MarketBoardState(definition: $0, now: displayedDate, displayTimeZone: displayTimeZone) }
+        let displayedDate = markerDateOverride ?? now
+        let boardStates = rows.map {
+            MarketBoardState(
+                definition: $0,
+                displayedDate: displayedDate,
+                timelineCenterDate: now,
+                displayTimeZone: displayTimeZone
+            )
+        }
         let activitySnapshot = Self.activityService.snapshot(at: displayedDate, events: events)
         let markerTimeLabel = SessionPresentation.markerTimeString(for: displayedDate, displayTimeZone: displayTimeZone)
+        let markerWindow = SessionPresentation.centeredWindow(containing: now)
 
         VStack(alignment: .leading, spacing: 14) {
             GeometryReader { proxy in
@@ -245,12 +251,14 @@ private struct MarketBoardPanel: View {
                 let volumeRowHeight: CGFloat = isCompact ? 110 : 118
                 let timelineWidth = max(proxy.size.width - labelWidth - spacing, 1)
                 let compactTimelineWidth = max(proxy.size.width - 32, 1)
+                let timelineTrackInset: CGFloat = 0
+                let timelineTrackWidth = max(isCompact ? compactTimelineWidth : timelineWidth, 1)
                 let timelineRowCount = CGFloat(boardStates.count)
                 let markerHeight = isCompact
                     ? proxy.size.height - rowHeight
                     : (rowHeight * timelineRowCount) + (8 * max(timelineRowCount - 1, 0)) + 8 + volumeRowHeight
-                let markerFraction = markerDayFractionOverride ?? SessionPresentation.dayFraction(for: now, displayTimeZone: displayTimeZone)
-                let markerXPosition = (isCompact ? compactTimelineWidth : timelineWidth) * markerFraction
+                let markerFraction = markerFraction(for: displayedDate, in: markerWindow)
+                let markerXPosition = timelineTrackInset + (timelineTrackWidth * markerFraction)
 
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -263,7 +271,7 @@ private struct MarketBoardPanel: View {
                                     ForEach(boardStates) { state in
                                         CompactMarketTimelineRow(
                                             state: state,
-                                            timelineWidth: compactTimelineWidth
+                                            timelineWidth: timelineTrackWidth
                                         )
                                         .frame(height: rowHeight)
                                     }
@@ -279,11 +287,11 @@ private struct MarketBoardPanel: View {
                                 SessionNowMarker(
                                     xPosition: markerXPosition,
                                     timelineWidth: compactTimelineWidth,
-                                    height: markerHeight,
-                                    timeLabel: markerTimeLabel,
-                                    isInteracting: markerDayFractionOverride != nil
+                                        height: markerHeight,
+                                        timeLabel: markerTimeLabel,
+                                        isInteracting: markerDateOverride != nil
                                 )
-                                .gesture(markerDragGesture(timelineWidth: compactTimelineWidth))
+                                .gesture(markerDragGesture(timelineWidth: timelineTrackWidth))
                             }
                         } else {
                             HStack(alignment: .top, spacing: spacing) {
@@ -297,7 +305,7 @@ private struct MarketBoardPanel: View {
                                     }
 
                                     VolumeSidebarCard(
-                                        title: "Volume",
+                                        title: "Liquidity",
                                         statusText: activitySnapshot.statusText,
                                         tag: activitySnapshot.tier.rawValue,
                                         tagColor: activityColor(for: activitySnapshot.tier)
@@ -311,7 +319,7 @@ private struct MarketBoardPanel: View {
                                         ForEach(boardStates) { state in
                                             MarketSessionTimelineRow(
                                                 state: state,
-                                                timelineWidth: timelineWidth,
+                                                timelineWidth: timelineTrackWidth,
                                                 compact: false
                                             )
                                             .frame(height: rowHeight)
@@ -329,9 +337,9 @@ private struct MarketBoardPanel: View {
                                         timelineWidth: timelineWidth,
                                         height: markerHeight,
                                         timeLabel: markerTimeLabel,
-                                        isInteracting: markerDayFractionOverride != nil
+                                        isInteracting: markerDateOverride != nil
                                     )
-                                    .gesture(markerDragGesture(timelineWidth: timelineWidth))
+                                    .gesture(markerDragGesture(timelineWidth: timelineTrackWidth))
                                 }
                                 .frame(width: timelineWidth)
                             }
@@ -349,36 +357,59 @@ private struct MarketBoardPanel: View {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 let clampedTimelineWidth = max(timelineWidth, 1)
-                let startFraction = markerDragStartFraction
-                    ?? markerDayFractionOverride
-                    ?? SessionPresentation.dayFraction(for: now, displayTimeZone: displayTimeZone)
+                let startDate = markerDragStartDate
+                    ?? markerDateOverride
+                    ?? now
 
-                if markerDragStartFraction == nil {
-                    markerDragStartFraction = startFraction
+                if markerDragStartDate == nil {
+                    markerDragStartDate = startDate
                 }
 
-                let translatedFraction = startFraction + (value.translation.width / clampedTimelineWidth)
-                let fraction = snappedMarkerFraction(for: translatedFraction, timelineWidth: clampedTimelineWidth)
-                markerDayFractionOverride = fraction
+                let secondsPerPoint = (24 * 60 * 60) / clampedTimelineWidth
+                let translatedDate = startDate.addingTimeInterval(TimeInterval(value.translation.width) * secondsPerPoint)
+                let clampedDate = clampedMarkerDate(for: translatedDate)
+                markerDateOverride = snappedMarkerDate(for: clampedDate, timelineWidth: clampedTimelineWidth)
             }
             .onEnded { _ in
-                markerDragStartFraction = nil
-                markerDayFractionOverride = nil
+                markerDragStartDate = nil
+                markerDateOverride = nil
             }
     }
 
-    private func snappedMarkerFraction(for fraction: Double, timelineWidth: CGFloat) -> Double {
-        let clampedFraction = min(max(fraction, 0), 1)
-        let snapThreshold = 4 / timelineWidth
-        let snapFractions = SessionPresentation.marketBoundaryFractions(onSameDayAs: now, displayTimeZone: displayTimeZone)
-
-        guard let nearestBoundary = snapFractions.min(by: {
-            abs($0 - clampedFraction) < abs($1 - clampedFraction)
-        }) else {
-            return clampedFraction
+    private func markerFraction(for date: Date, in window: DateInterval) -> CGFloat {
+        guard window.duration > 0 else {
+            return 0.5
         }
 
-        return abs(nearestBoundary - clampedFraction) <= snapThreshold ? nearestBoundary : clampedFraction
+        let offset = date.timeIntervalSince(window.start) / window.duration
+        return CGFloat(min(max(offset, 0), 1))
+    }
+
+    private func clampedMarkerDate(for date: Date) -> Date {
+        let window = SessionPresentation.centeredWindow(containing: now)
+        let clampedTimeInterval = min(max(date.timeIntervalSince(window.start), 0), window.duration)
+        return window.start.addingTimeInterval(clampedTimeInterval)
+    }
+
+    private func snappedMarkerDate(for date: Date, timelineWidth: CGFloat) -> Date {
+        let snapThreshold = (4 / timelineWidth) * (24 * 60 * 60)
+        let boundaryDates = marketBoundaryDates(around: date)
+
+        guard let nearestBoundary = boundaryDates.min(by: {
+            abs($0.timeIntervalSince(date)) < abs($1.timeIntervalSince(date))
+        }) else {
+            return date
+        }
+
+        return abs(nearestBoundary.timeIntervalSince(date)) <= snapThreshold ? nearestBoundary : date
+    }
+
+    private func marketBoundaryDates(around referenceDate: Date) -> [Date] {
+        rows.flatMap { definition in
+            SessionPresentation.marketIntervalsAroundNow(for: definition, now: referenceDate).flatMap { interval in
+                [interval.start, interval.end]
+            }
+        }
     }
     private func activityColor(for tier: MarketActivityTier) -> Color {
         switch tier {
@@ -403,22 +434,22 @@ private struct MarketBoardState: Identifiable {
 
     var id: String { definition.id }
 
-    init(definition: MarketBoardDefinition, now: Date, displayTimeZone: TimeZone) {
+    init(definition: MarketBoardDefinition, displayedDate: Date, timelineCenterDate: Date, displayTimeZone: TimeZone) {
         self.definition = definition
 
-        let intervals = SessionPresentation.marketIntervalsAroundNow(for: definition, now: now)
-        let active = intervals.first(where: { $0.contains(now) })
-        let nextInterval = intervals.first(where: { $0.start > now }) ?? SessionPresentation.nextMarketInterval(for: definition, after: now)
+        let intervals = SessionPresentation.marketIntervalsAroundNow(for: definition, now: displayedDate)
+        let active = intervals.first(where: { $0.contains(displayedDate) })
+        let nextInterval = intervals.first(where: { $0.start > displayedDate }) ?? SessionPresentation.nextMarketInterval(for: definition, after: displayedDate)
         let referenceInterval = active ?? nextInterval
 
-        self.localNow = SessionPresentation.timeString(in: definition.timeZone, for: now)
-        self.localDateLine = SessionPresentation.dateString(in: definition.timeZone, for: now)
+        self.localNow = SessionPresentation.timeString(in: definition.timeZone, for: displayedDate)
+        self.localDateLine = SessionPresentation.dateString(in: definition.timeZone, for: displayedDate)
         self.nextTransitionLabel = active == nil
-            ? "Opens in \(SessionPresentation.relativeCountdown(to: referenceInterval.start, from: now))"
-            : "Closes in \(SessionPresentation.relativeCountdown(to: referenceInterval.end, from: now))"
+            ? "Opens in \(SessionPresentation.relativeCountdown(to: referenceInterval.start, from: displayedDate))"
+            : "Closes in \(SessionPresentation.relativeCountdown(to: referenceInterval.end, from: displayedDate))"
         self.transitionStatusText = active == nil ? "Closed" : "Open"
         self.transitionStatusColor = active == nil ? Color.red : FXNewsPalette.success
-        self.timelineSegments = SessionPresentation.timelineSegments(for: definition, dayContaining: now, displayTimeZone: displayTimeZone)
+        self.timelineSegments = SessionPresentation.timelineSegments(for: definition, centeredAt: timelineCenterDate)
     }
 }
 
@@ -497,8 +528,8 @@ private struct MarketSessionTimelineRow: View {
                     .foregroundStyle(FXNewsPalette.muted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .padding(.horizontal, compact ? 8 : 10)
             }
-            .padding(.horizontal, compact ? 8 : 10)
             .padding(.vertical, compact ? 8 : 9)
         }
     }
@@ -532,6 +563,7 @@ private struct CompactMarketTimelineRow: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
+            .padding(.horizontal, 8)
 
             VStack(alignment: .leading, spacing: 4) {
                 ZStack(alignment: .leading) {
@@ -549,7 +581,6 @@ private struct CompactMarketTimelineRow: View {
                 .frame(height: 8)
             }
         }
-        .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -596,8 +627,11 @@ private struct VolumeTimelineRow: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.white.opacity(0.12))
 
-            VolumeProfileWave(snapshot: snapshot, markerDate: markerDate, showsBackground: false)
-                .padding(.horizontal, 10)
+            LiquidityStrip(
+                snapshot: snapshot,
+                markerDate: markerDate,
+                showsBackground: false
+            )
                 .padding(.vertical, 12)
         }
     }
@@ -611,7 +645,7 @@ private struct CompactVolumeTimelineRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("Trading volume")
+                Text("Liquidity")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(FXNewsPalette.text)
 
@@ -624,7 +658,11 @@ private struct CompactVolumeTimelineRow: View {
                 FXNewsPill(text: snapshot.tier.rawValue, tint: activityColor.opacity(0.14))
             }
 
-            VolumeProfileWave(snapshot: snapshot, markerDate: markerDate, showsBackground: false)
+            LiquidityStrip(
+                snapshot: snapshot,
+                markerDate: markerDate,
+                showsBackground: false
+            )
                 .frame(width: timelineWidth, height: 62)
         }
         .padding(.horizontal, 8)
@@ -697,7 +735,7 @@ private struct SessionNowMarker: View {
     }
 }
 
-private struct VolumeProfileWave: View {
+private struct LiquidityStrip: View {
     let snapshot: MarketActivitySnapshot
     let markerDate: Date
     var showsBackground: Bool = true
@@ -705,21 +743,30 @@ private struct VolumeProfileWave: View {
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
-            let points = wavePoints(in: size)
-            let strokeGradient = LinearGradient(
-                colors: [
-                    FXNewsPalette.success,
-                    FXNewsPalette.warning,
-                    Color(red: 0.80, green: 0.26, blue: 0.47),
-                    FXNewsPalette.warning,
-                    FXNewsPalette.success
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
+            let columns = max(snapshot.sparklineSamples.count, 1)
+            let spacing: CGFloat = columns > 24 ? 2 : 3
+            let columnWidth = max((size.width - (CGFloat(columns - 1) * spacing)) / CGFloat(columns), 3)
 
-            ZStack {
+            VStack(alignment: .leading, spacing: 10) {
                 if showsBackground {
+                    header
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .bottom, spacing: spacing) {
+                        ForEach(Array(snapshot.sparklineSamples.enumerated()), id: \.offset) { index, sample in
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(sampleColor(for: sample))
+                                .frame(width: columnWidth, height: barHeight(for: sample, totalHeight: size.height))
+                                .frame(maxHeight: .infinity, alignment: .bottom)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                }
+                .padding(.horizontal, showsBackground ? 12 : 0)
+                .padding(.top, showsBackground ? 10 : 0)
+                .padding(.bottom, showsBackground ? 12 : 0)
+                .background {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(
                             LinearGradient(
@@ -732,117 +779,49 @@ private struct VolumeProfileWave: View {
                             )
                         )
                 }
-
-                waveFillPath(points: points, size: size)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                FXNewsPalette.success.opacity(0.24),
-                                FXNewsPalette.warning.opacity(0.18),
-                                Color(red: 0.80, green: 0.26, blue: 0.47).opacity(0.14),
-                                Color.clear
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
-                waveStrokePath(points: points)
-                    .stroke(
-                        strokeGradient,
-                        style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round)
-                    )
-                    .blur(radius: 14)
-                    .opacity(0.28)
-
-                waveStrokePath(points: points)
-                    .stroke(
-                        strokeGradient,
-                        style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round)
-                    )
-                    .blur(radius: 4)
-                    .opacity(0.24)
-
-                waveStrokePath(points: points)
-                    .stroke(
-                        strokeGradient,
-                        style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
-                    )
-
             }
         }
     }
 
-    private func waveY(sample: Double, height: CGFloat) -> CGFloat {
-        let normalizedValue = emphasizedSample(sample)
-        let verticalPadding = height * 0.10
-        let drawableHeight = max(height - (verticalPadding * 2), 1)
-        return verticalPadding + (1 - normalizedValue) * drawableHeight
-    }
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("Liquidity")
+                .font(.headline)
+                .foregroundStyle(FXNewsPalette.text)
 
-    private func wavePoints(in size: CGSize) -> [CGPoint] {
-        let samples = snapshot.sparklineSamples
-        let count = max(samples.count - 1, 1)
+            Text(snapshot.tier.rawValue)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(activityColor)
 
-        return samples.enumerated().map { index, sample in
-            let progress = Double(index) / Double(count)
-            return CGPoint(
-                x: size.width * progress,
-                y: waveY(sample: sample, height: size.height)
-            )
+            Spacer(minLength: 8)
+
+            Text(SessionPresentation.markerTimeString(for: markerDate))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(FXNewsPalette.muted)
         }
     }
 
-    private func emphasizedSample(_ sample: Double) -> Double {
-        let clampedSample = min(max(sample, 0), 1)
-        let boostedSample = min(max(0.5 + ((clampedSample - 0.5) * 1.7), 0), 1)
-
-        if boostedSample < 0.5 {
-            return 0.5 * pow(boostedSample * 2, 1.45)
-        }
-
-        let mirroredSample = (1 - boostedSample) * 2
-        return 1 - (0.5 * pow(mirroredSample, 1.45))
+    private func barHeight(for sample: Double, totalHeight: CGFloat) -> CGFloat {
+        let minimumHeight = max(totalHeight * 0.22, 12)
+        let usableHeight = max(totalHeight - minimumHeight, 1)
+        return minimumHeight + (min(max(sample, 0), 1) * usableHeight)
     }
 
-    private func waveStrokePath(points: [CGPoint]) -> Path {
-        Path { path in
-            guard let firstPoint = points.first else {
-                return
-            }
-
-            path.move(to: firstPoint)
-
-            if points.count == 2, let lastPoint = points.last {
-                path.addLine(to: lastPoint)
-            } else {
-                for index in 1..<points.count {
-                    let previousPoint = points[index - 1]
-                    let currentPoint = points[index]
-                    let midpoint = CGPoint(
-                        x: (previousPoint.x + currentPoint.x) / 2,
-                        y: (previousPoint.y + currentPoint.y) / 2
-                    )
-
-                    path.addQuadCurve(to: midpoint, control: previousPoint)
-                    path.addQuadCurve(to: currentPoint, control: midpoint)
-                }
-            }
-        }
+    private func sampleColor(for sample: Double) -> Color {
+        let normalized = min(max(sample, 0), 1)
+        let opacity = 0.22 + (normalized * 0.73)
+        return activityColor.opacity(opacity)
     }
 
-    private func waveFillPath(points: [CGPoint], size: CGSize) -> Path {
-        var path = waveStrokePath(points: points)
-
-        guard let lastPoint = points.last else {
-            return path
+    private var activityColor: Color {
+        switch snapshot.tier {
+        case .high:
+            FXNewsPalette.success
+        case .medium:
+            FXNewsPalette.warning
+        case .low:
+            Color(red: 0.80, green: 0.26, blue: 0.47)
         }
-
-        path.addLine(to: CGPoint(x: lastPoint.x, y: size.height))
-        path.addLine(to: CGPoint(x: 0, y: size.height))
-        path.closeSubpath()
-
-        return path
     }
 }
 

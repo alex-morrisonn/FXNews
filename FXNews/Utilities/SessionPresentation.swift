@@ -124,34 +124,27 @@ enum SessionPresentation {
 
     static func timelineSegments(for definition: ForexSessionDefinition, dayContaining date: Date, displayTimeZone: TimeZone = .current) -> [TimelineSegment] {
         let localDayInterval = localDayInterval(containing: date, timeZone: displayTimeZone)
-        let localDayStart = localDayInterval.start
-        let localDayDuration = localDayInterval.duration
-
-        return intervalsAroundNow(for: definition, now: date).compactMap { interval in
-            guard let intersection = interval.intersection(with: localDayInterval) else {
-                return nil
-            }
-
-            let startFraction = intersection.start.timeIntervalSince(localDayStart) / localDayDuration
-            let lengthFraction = intersection.duration / localDayDuration
-            return TimelineSegment(start: startFraction, length: lengthFraction)
-        }
+        return timelineSegments(in: localDayInterval, intervals: intervalsAroundNow(for: definition, now: date))
     }
 
     static func timelineSegments(for definition: MarketBoardDefinition, dayContaining date: Date, displayTimeZone: TimeZone = .current) -> [TimelineSegment] {
         let localDayInterval = localDayInterval(containing: date, timeZone: displayTimeZone)
-        let localDayStart = localDayInterval.start
-        let localDayDuration = localDayInterval.duration
+        return timelineSegments(in: localDayInterval, intervals: marketIntervalsAroundNow(for: definition, now: date))
+    }
 
-        return marketIntervalsAroundNow(for: definition, now: date).compactMap { interval in
-            guard let intersection = interval.intersection(with: localDayInterval) else {
-                return nil
-            }
+    static func timelineSegments(for definition: ForexSessionDefinition, centeredAt date: Date, hoursBefore: Double = 12, hoursAfter: Double = 12) -> [TimelineSegment] {
+        let interval = centeredWindow(containing: date, hoursBefore: hoursBefore, hoursAfter: hoursAfter)
+        return timelineSegments(in: interval, intervals: intervalsAroundNow(for: definition, now: date))
+    }
 
-            let startFraction = intersection.start.timeIntervalSince(localDayStart) / localDayDuration
-            let lengthFraction = intersection.duration / localDayDuration
-            return TimelineSegment(start: startFraction, length: lengthFraction)
-        }
+    static func timelineSegments(for definition: MarketBoardDefinition, centeredAt date: Date, hoursBefore: Double = 12, hoursAfter: Double = 12) -> [TimelineSegment] {
+        let interval = centeredWindow(containing: date, hoursBefore: hoursBefore, hoursAfter: hoursAfter)
+        return timelineSegments(in: interval, intervals: marketIntervalsAroundNow(for: definition, now: date))
+    }
+
+    static func timelineSegments(for definition: ForexOverlapDefinition, centeredAt date: Date, hoursBefore: Double = 12, hoursAfter: Double = 12) -> [TimelineSegment] {
+        let interval = centeredWindow(containing: date, hoursBefore: hoursBefore, hoursAfter: hoursAfter)
+        return timelineSegments(in: interval, intervals: overlapIntervalsAroundNow(for: definition, now: date))
     }
 
     static func relativeCountdown(to date: Date, from now: Date) -> String {
@@ -204,6 +197,12 @@ enum SessionPresentation {
         EventDateFormatter.timeString(from: date, timeZone: displayTimeZone, use24HourTime: false)
     }
 
+    static func centeredWindow(containing date: Date, hoursBefore: Double = 12, hoursAfter: Double = 12) -> DateInterval {
+        let start = date.addingTimeInterval(-(hoursBefore * 60 * 60))
+        let duration = max(hoursBefore + hoursAfter, 0) * 60 * 60
+        return DateInterval(start: start, duration: duration)
+    }
+
     static func marketBoundaryFractions(onSameDayAs referenceDate: Date, displayTimeZone: TimeZone = .current) -> [Double] {
         let localDayInterval = localDayInterval(containing: referenceDate, timeZone: displayTimeZone)
         let localDayStart = localDayInterval.start
@@ -249,6 +248,25 @@ enum SessionPresentation {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         return calendar
+    }
+
+    private static func timelineSegments(in displayInterval: DateInterval, intervals: [DateInterval]) -> [TimelineSegment] {
+        let displayStart = displayInterval.start
+        let displayDuration = displayInterval.duration
+
+        guard displayDuration > 0 else {
+            return []
+        }
+
+        return intervals.compactMap { interval in
+            guard let intersection = interval.intersection(with: displayInterval) else {
+                return nil
+            }
+
+            let startFraction = intersection.start.timeIntervalSince(displayStart) / displayDuration
+            let lengthFraction = intersection.duration / displayDuration
+            return TimelineSegment(start: startFraction, length: lengthFraction)
+        }
     }
 
     private static func localTime(_ date: Date, displayTimeZone: TimeZone) -> String {

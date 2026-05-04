@@ -63,4 +63,18 @@ struct SessionPresentationTests {
         #expect(segments.allSatisfy { 0...1 ~= $0.length })
         #expect(segments.allSatisfy { $0.start + $0.length <= 1.000001 })
     }
+
+    @Test
+    func centeredTimelineSegmentsCoverRollingTwentyFourHourWindow() throws {
+        let formatter = ISO8601DateFormatter()
+        let referenceDate = try #require(formatter.date(from: "2026-04-14T12:00:00Z"))
+
+        let segments = SessionPresentation.timelineSegments(for: MarketBoardDefinition.newYork, centeredAt: referenceDate)
+        let expectedStart = (try #require(formatter.date(from: "2026-04-14T13:00:00Z"))).timeIntervalSince(referenceDate.addingTimeInterval(-12 * 60 * 60)) / (24 * 60 * 60)
+        let expectedLength = Double(8 * 60 * 60) / Double(24 * 60 * 60)
+
+        #expect(segments.count == 1)
+        #expect(abs(segments[0].start - expectedStart) < 0.000001)
+        #expect(abs(segments[0].length - expectedLength) < 0.000001)
+    }
 }
