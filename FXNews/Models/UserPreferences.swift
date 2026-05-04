@@ -86,12 +86,16 @@ final class UserPreferences {
         didSet { defaults.set(newYorkSessionNotificationsEnabled, forKey: Keys.newYorkSessionNotificationsEnabled) }
     }
 
-    var asianLondonOverlapNotificationsEnabled: Bool {
-        didSet { defaults.set(asianLondonOverlapNotificationsEnabled, forKey: Keys.asianLondonOverlapNotificationsEnabled) }
+    var asianSessionOpenNotificationsEnabled: Bool {
+        didSet { defaults.set(asianSessionOpenNotificationsEnabled, forKey: Keys.asianSessionOpenNotificationsEnabled) }
     }
 
-    var londonNewYorkOverlapNotificationsEnabled: Bool {
-        didSet { defaults.set(londonNewYorkOverlapNotificationsEnabled, forKey: Keys.londonNewYorkOverlapNotificationsEnabled) }
+    var londonSessionOpenNotificationsEnabled: Bool {
+        didSet { defaults.set(londonSessionOpenNotificationsEnabled, forKey: Keys.londonSessionOpenNotificationsEnabled) }
+    }
+
+    var newYorkSessionOpenNotificationsEnabled: Bool {
+        didSet { defaults.set(newYorkSessionOpenNotificationsEnabled, forKey: Keys.newYorkSessionOpenNotificationsEnabled) }
     }
 
     var hasCompletedOnboarding: Bool {
@@ -122,8 +126,9 @@ final class UserPreferences {
         self.asianSessionNotificationsEnabled = defaults.bool(forKey: Keys.asianSessionNotificationsEnabled)
         self.londonSessionNotificationsEnabled = defaults.bool(forKey: Keys.londonSessionNotificationsEnabled)
         self.newYorkSessionNotificationsEnabled = defaults.bool(forKey: Keys.newYorkSessionNotificationsEnabled)
-        self.asianLondonOverlapNotificationsEnabled = defaults.bool(forKey: Keys.asianLondonOverlapNotificationsEnabled)
-        self.londonNewYorkOverlapNotificationsEnabled = defaults.bool(forKey: Keys.londonNewYorkOverlapNotificationsEnabled)
+        self.asianSessionOpenNotificationsEnabled = defaults.bool(forKey: Keys.asianSessionOpenNotificationsEnabled)
+        self.londonSessionOpenNotificationsEnabled = defaults.bool(forKey: Keys.londonSessionOpenNotificationsEnabled)
+        self.newYorkSessionOpenNotificationsEnabled = defaults.bool(forKey: Keys.newYorkSessionOpenNotificationsEnabled)
         self.hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
 
         if defaults.object(forKey: Keys.firstLaunchDate) == nil {
@@ -180,8 +185,9 @@ final class UserPreferences {
         asianSessionNotificationsEnabled = false
         londonSessionNotificationsEnabled = false
         newYorkSessionNotificationsEnabled = false
-        asianLondonOverlapNotificationsEnabled = false
-        londonNewYorkOverlapNotificationsEnabled = false
+        asianSessionOpenNotificationsEnabled = false
+        londonSessionOpenNotificationsEnabled = false
+        newYorkSessionOpenNotificationsEnabled = false
     }
 
     private func setOptionalString(_ value: String?, forKey key: String) {
@@ -313,8 +319,9 @@ private enum Keys {
     static let asianSessionNotificationsEnabled = "preferences.asianSessionNotificationsEnabled"
     static let londonSessionNotificationsEnabled = "preferences.londonSessionNotificationsEnabled"
     static let newYorkSessionNotificationsEnabled = "preferences.newYorkSessionNotificationsEnabled"
-    static let asianLondonOverlapNotificationsEnabled = "preferences.asianLondonOverlapNotificationsEnabled"
-    static let londonNewYorkOverlapNotificationsEnabled = "preferences.londonNewYorkOverlapNotificationsEnabled"
+    static let asianSessionOpenNotificationsEnabled = "preferences.asianSessionOpenNotificationsEnabled"
+    static let londonSessionOpenNotificationsEnabled = "preferences.londonSessionOpenNotificationsEnabled"
+    static let newYorkSessionOpenNotificationsEnabled = "preferences.newYorkSessionOpenNotificationsEnabled"
     static let hasCompletedOnboarding = "preferences.hasCompletedOnboarding"
     static let firstLaunchDate = "preferences.firstLaunchDate"
 }

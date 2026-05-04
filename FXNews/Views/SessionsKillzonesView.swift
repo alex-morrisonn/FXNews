@@ -8,7 +8,6 @@ struct SessionsKillzonesView: View {
     @State private var notificationMessage: String?
 
     private let sessionDefinitions = ForexSessionDefinition.allCases
-    private let overlapDefinitions = ForexOverlapDefinition.allCases
 
     var body: some View {
         ScrollView {
@@ -24,13 +23,10 @@ struct SessionsKillzonesView: View {
                         let sessionStates = sessionDefinitions.map {
                             SessionState(definition: $0, now: context.date, displayTimeZone: preferences.effectiveTimeZone)
                         }
-                        let overlapStates = overlapDefinitions.map {
-                            OverlapState(definition: $0, now: context.date, displayTimeZone: preferences.effectiveTimeZone)
-                        }
 
                         VStack(alignment: .leading, spacing: FXNewsLayout.sectionSpacing) {
                             marketBoardCard(now: context.date)
-                            notificationsCard(sessionStates: sessionStates, overlapStates: overlapStates)
+                            notificationsCard(sessionStates: sessionStates)
                         }
                     }
                 }
@@ -63,48 +59,53 @@ struct SessionsKillzonesView: View {
         .padding(.top, 8)
     }
 
-    private func notificationsCard(sessionStates: [SessionState], overlapStates: [OverlapState]) -> some View {
+    private func notificationsCard(sessionStates: [SessionState]) -> some View {
         FXNewsCard {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Notifications")
                     .font(.headline)
                     .foregroundStyle(FXNewsPalette.text)
 
-                Text("Get a 15-minute warning before a session opens or an overlap begins.")
+                Text("Choose a 15-minute warning, an at-open alert, or both for each session.")
                     .font(.subheadline)
                     .foregroundStyle(FXNewsPalette.muted)
 
                 ForEach(sessionStates) { state in
-                    Toggle(isOn: sessionNotificationBinding(for: state.definition)) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("\(state.definition.title) open")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(FXNewsPalette.text)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(state.definition.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(FXNewsPalette.text)
 
-                            Text("Alerts 15 minutes before \(state.definition.shortTitle) starts.")
-                                .font(.caption)
-                                .foregroundStyle(FXNewsPalette.muted)
+                        Toggle(isOn: sessionNotificationBinding(for: state.definition, timing: .warning)) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("15 min before open")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(FXNewsPalette.text)
+
+                                Text("Alerts 15 minutes before \(state.definition.shortTitle) starts.")
+                                    .font(.caption)
+                                    .foregroundStyle(FXNewsPalette.muted)
+                            }
                         }
-                    }
-                    .tint(FXNewsPalette.accent)
-                }
+                        .tint(FXNewsPalette.accent)
 
-                Divider()
-                    .overlay(FXNewsPalette.stroke)
+                        Toggle(isOn: sessionNotificationBinding(for: state.definition, timing: .open)) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("At session open")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(FXNewsPalette.text)
 
-                ForEach(overlapStates) { overlap in
-                    Toggle(isOn: overlapNotificationBinding(for: overlap.definition)) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("\(overlap.definition.title) start")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(FXNewsPalette.text)
-
-                            Text("Alerts 15 minutes before the overlap begins.")
-                                .font(.caption)
-                                .foregroundStyle(FXNewsPalette.muted)
+                                Text("Alerts when \(state.definition.shortTitle) opens.")
+                                    .font(.caption)
+                                    .foregroundStyle(FXNewsPalette.muted)
+                            }
                         }
+                        .tint(FXNewsPalette.accent)
                     }
-                    .tint(FXNewsPalette.accent)
+                    if state.id != sessionStates.last?.id {
+                        Divider()
+                            .overlay(FXNewsPalette.stroke)
+                    }
                 }
             }
         }
@@ -119,91 +120,34 @@ struct SessionsKillzonesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func sessionNotificationBinding(for definition: ForexSessionDefinition) -> Binding<Bool> {
+    private func sessionNotificationBinding(for definition: ForexSessionDefinition, timing: SessionNotificationTiming) -> Binding<Bool> {
         Binding(
             get: {
-                switch definition {
-                case .asian:
-                    preferences.asianSessionNotificationsEnabled
-                case .london:
-                    preferences.londonSessionNotificationsEnabled
-                case .newYork:
-                    preferences.newYorkSessionNotificationsEnabled
-                }
+                sessionNotificationEnabled(for: definition, timing: timing)
             },
             set: { isEnabled in
-                switch definition {
-                case .asian:
-                    preferences.asianSessionNotificationsEnabled = isEnabled
-                case .london:
-                    preferences.londonSessionNotificationsEnabled = isEnabled
-                case .newYork:
-                    preferences.newYorkSessionNotificationsEnabled = isEnabled
-                }
+                setSessionNotification(definition, timing: timing, enabled: isEnabled)
 
                 Task {
                     FXNewsHaptics.selection()
-                    await syncSessionNotification(for: definition, enabled: isEnabled)
+                    await syncSessionNotification(for: definition, timing: timing, enabled: isEnabled)
                 }
             }
         )
     }
 
-    private func overlapNotificationBinding(for definition: ForexOverlapDefinition) -> Binding<Bool> {
-        Binding(
-            get: {
-                switch definition {
-                case .asianLondon:
-                    preferences.asianLondonOverlapNotificationsEnabled
-                case .londonNewYork:
-                    preferences.londonNewYorkOverlapNotificationsEnabled
-                }
-            },
-            set: { isEnabled in
-                switch definition {
-                case .asianLondon:
-                    preferences.asianLondonOverlapNotificationsEnabled = isEnabled
-                case .londonNewYork:
-                    preferences.londonNewYorkOverlapNotificationsEnabled = isEnabled
-                }
-
-                Task {
-                    FXNewsHaptics.selection()
-                    await syncOverlapNotification(for: definition, enabled: isEnabled)
-                }
-            }
-        )
-    }
-
-    private func syncSessionNotification(for definition: ForexSessionDefinition, enabled: Bool) async {
+    private func syncSessionNotification(for definition: ForexSessionDefinition, timing: SessionNotificationTiming, enabled: Bool) async {
         do {
             if enabled {
-                try await SessionNotificationStore.scheduleSessionNotification(for: definition, preferences: preferences)
-                notificationMessage = "\(definition.title) session notification scheduled."
+                try await SessionNotificationStore.scheduleSessionNotification(for: definition, timing: timing, preferences: preferences)
+                notificationMessage = "\(definition.title) \(timing.titleSuffix) notification scheduled."
             } else {
-                await SessionNotificationStore.removeSessionNotification(for: definition)
-                notificationMessage = "\(definition.title) session notification removed."
+                await SessionNotificationStore.removeSessionNotification(for: definition, timing: timing)
+                notificationMessage = "\(definition.title) \(timing.titleSuffix) notification removed."
             }
         } catch {
             if enabled {
-                setSessionNotification(definition, enabled: false)
-            }
-            notificationMessage = error.localizedDescription
-        }
-    }
-
-    private func syncOverlapNotification(for definition: ForexOverlapDefinition, enabled: Bool) async {
-        do {
-            if enabled {
-                try await SessionNotificationStore.scheduleOverlapNotification(for: definition, preferences: preferences)
-                notificationMessage = "\(definition.title) notification scheduled."
-            } else {
-                await SessionNotificationStore.removeOverlapNotification(for: definition)
-                notificationMessage = "\(definition.title) notification removed."
-            }
-        } catch {
-            if enabled {
-                setOverlapNotification(definition, enabled: false)
+                setSessionNotification(definition, timing: timing, enabled: false)
             }
             notificationMessage = error.localizedDescription
         }
@@ -220,23 +164,37 @@ struct SessionsKillzonesView: View {
         )
     }
 
-    private func setSessionNotification(_ definition: ForexSessionDefinition, enabled: Bool) {
-        switch definition {
-        case .asian:
-            preferences.asianSessionNotificationsEnabled = enabled
-        case .london:
-            preferences.londonSessionNotificationsEnabled = enabled
-        case .newYork:
-            preferences.newYorkSessionNotificationsEnabled = enabled
+    private func sessionNotificationEnabled(for definition: ForexSessionDefinition, timing: SessionNotificationTiming) -> Bool {
+        switch (definition, timing) {
+        case (.asian, .warning):
+            preferences.asianSessionNotificationsEnabled
+        case (.london, .warning):
+            preferences.londonSessionNotificationsEnabled
+        case (.newYork, .warning):
+            preferences.newYorkSessionNotificationsEnabled
+        case (.asian, .open):
+            preferences.asianSessionOpenNotificationsEnabled
+        case (.london, .open):
+            preferences.londonSessionOpenNotificationsEnabled
+        case (.newYork, .open):
+            preferences.newYorkSessionOpenNotificationsEnabled
         }
     }
 
-    private func setOverlapNotification(_ definition: ForexOverlapDefinition, enabled: Bool) {
-        switch definition {
-        case .asianLondon:
-            preferences.asianLondonOverlapNotificationsEnabled = enabled
-        case .londonNewYork:
-            preferences.londonNewYorkOverlapNotificationsEnabled = enabled
+    private func setSessionNotification(_ definition: ForexSessionDefinition, timing: SessionNotificationTiming, enabled: Bool) {
+        switch (definition, timing) {
+        case (.asian, .warning):
+            preferences.asianSessionNotificationsEnabled = enabled
+        case (.london, .warning):
+            preferences.londonSessionNotificationsEnabled = enabled
+        case (.newYork, .warning):
+            preferences.newYorkSessionNotificationsEnabled = enabled
+        case (.asian, .open):
+            preferences.asianSessionOpenNotificationsEnabled = enabled
+        case (.london, .open):
+            preferences.londonSessionOpenNotificationsEnabled = enabled
+        case (.newYork, .open):
+            preferences.newYorkSessionOpenNotificationsEnabled = enabled
         }
     }
 }
@@ -915,33 +873,6 @@ private struct SessionState: Identifiable {
         self.localWindowLabel = SessionPresentation.localWindowLabel(for: definition, referenceDate: now, displayTimeZone: displayTimeZone)
         self.openRelativeLabel = SessionPresentation.relativeCountdown(to: nextOpen, from: now)
         self.closeRelativeLabel = SessionPresentation.relativeCountdown(to: referenceInterval.end, from: now)
-    }
-}
-
-private struct OverlapState: Identifiable {
-    let definition: ForexOverlapDefinition
-    let activeInterval: DateInterval
-    let nextStartDate: Date
-    let isActive: Bool
-    let localWindowLabel: String
-    let startRelativeLabel: String
-    let endRelativeLabel: String
-
-    var id: String { definition.id }
-
-    init(definition: ForexOverlapDefinition, now: Date, displayTimeZone: TimeZone) {
-        self.definition = definition
-        let intervals = SessionPresentation.overlapIntervalsAroundNow(for: definition, now: now)
-        let active = intervals.first(where: { $0.contains(now) })
-        let nextStart = intervals.map(\.start).filter { $0 > now }.min() ?? SessionPresentation.nextOverlapInterval(for: definition, after: now).start
-        let referenceInterval = active ?? SessionPresentation.nextOverlapInterval(for: definition, after: now)
-
-        self.activeInterval = referenceInterval
-        self.nextStartDate = nextStart
-        self.isActive = active != nil
-        self.localWindowLabel = SessionPresentation.localWindowLabel(for: definition, referenceDate: now, displayTimeZone: displayTimeZone)
-        self.startRelativeLabel = SessionPresentation.relativeCountdown(to: nextStart, from: now)
-        self.endRelativeLabel = SessionPresentation.relativeCountdown(to: referenceInterval.end, from: now)
     }
 }
 

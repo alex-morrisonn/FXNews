@@ -122,8 +122,9 @@ struct RootTabView: View {
             "\(preferences.asianSessionNotificationsEnabled)",
             "\(preferences.londonSessionNotificationsEnabled)",
             "\(preferences.newYorkSessionNotificationsEnabled)",
-            "\(preferences.asianLondonOverlapNotificationsEnabled)",
-            "\(preferences.londonNewYorkOverlapNotificationsEnabled)"
+            "\(preferences.asianSessionOpenNotificationsEnabled)",
+            "\(preferences.londonSessionOpenNotificationsEnabled)",
+            "\(preferences.newYorkSessionOpenNotificationsEnabled)"
         ].joined(separator: "::")
     }
 }

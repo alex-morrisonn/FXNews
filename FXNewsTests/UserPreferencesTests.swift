@@ -35,6 +35,8 @@ struct UserPreferencesTests {
         preferences.watchedPairSymbols = ["EURUSD", "GBPJPY"]
         preferences.highImpactNotificationLeadTimeMinutes = 45
         preferences.notificationSoundOption = .prominent
+        preferences.londonSessionNotificationsEnabled = true
+        preferences.londonSessionOpenNotificationsEnabled = true
         preferences.hasCompletedOnboarding = true
 
         let restored = UserPreferences(defaults: defaults)
@@ -49,6 +51,8 @@ struct UserPreferencesTests {
         #expect(restored.watchedPairSymbols == ["EURUSD", "GBPJPY"])
         #expect(restored.highImpactNotificationLeadTimeMinutes == 45)
         #expect(restored.notificationSoundOption == .prominent)
+        #expect(restored.londonSessionNotificationsEnabled)
+        #expect(restored.londonSessionOpenNotificationsEnabled)
         #expect(restored.hasCompletedOnboarding)
     }
 
@@ -120,6 +124,7 @@ struct UserPreferencesTests {
         preferences.notificationSoundOption = .prominent
         preferences.quietHoursEnabled = true
         preferences.asianSessionNotificationsEnabled = true
+        preferences.asianSessionOpenNotificationsEnabled = true
         preferences.hasCompletedOnboarding = true
 
         preferences.reset()
@@ -138,6 +143,7 @@ struct UserPreferencesTests {
         #expect(preferences.notificationSoundOption == .subtle)
         #expect(!preferences.quietHoursEnabled)
         #expect(!preferences.asianSessionNotificationsEnabled)
+        #expect(!preferences.asianSessionOpenNotificationsEnabled)
         #expect(preferences.hasCompletedOnboarding)
     }
 
