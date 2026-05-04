@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import FXNews
 
+@Suite(.serialized)
 @MainActor
 struct RemoteCalendarServiceTests {
     @Test
