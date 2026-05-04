@@ -390,7 +390,7 @@ struct CalendarView: View {
         if usesFallbackData {
             title = isStale ? "Calendar may be outdated" : "Showing fallback calendar data"
         } else {
-            title = isStale ? "Calendar data is stale" : "Last updated"
+            title = isStale ? "Calendar data is stale" : "Last checked"
         }
 
         let message: String?

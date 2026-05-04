@@ -85,7 +85,7 @@ struct CalendarResponse: Codable {
 }
 
 final class RemoteCalendarService: CalendarService {
-    static let calendarURL = URL(string: "https://raw.githubusercontent.com/alex-morrisonn/FXNews/refs/heads/main/FXNews/SampleData/calendar.json")!
+    static let calendarURL = URL(string: "https://raw.githubusercontent.com/alex-morrisonn/FXNews/main/FXNews/SampleData/calendar.json")!
     static let productionCacheLifetime: TimeInterval = 24 * 60 * 60
     static let appOpenRefreshInterval: TimeInterval = 60 * 60
     private static let lastRemoteCheckFormatter = ISO8601DateFormatter()
@@ -157,7 +157,7 @@ final class RemoteCalendarService: CalendarService {
                 return CalendarFetchResult(
                     events: bundledResponse.events,
                     source: .bundled,
-                    lastUpdated: bundledResponse.lastUpdated,
+                    lastUpdated: try bundledSourceDate(),
                     isFallback: false
                 )
             }
@@ -167,7 +167,7 @@ final class RemoteCalendarService: CalendarService {
                 return CalendarFetchResult(
                     events: cachedResponse.events,
                     source: .cache,
-                    lastUpdated: cachedResponse.lastUpdated,
+                    lastUpdated: try cacheSourceDate(),
                     isFallback: false
                 )
             }
@@ -177,7 +177,7 @@ final class RemoteCalendarService: CalendarService {
             return CalendarFetchResult(
                 events: remoteResponse.events,
                 source: .remote,
-                lastUpdated: remoteResponse.lastUpdated,
+                lastUpdated: now(),
                 isFallback: false
             )
         } catch {
@@ -185,7 +185,7 @@ final class RemoteCalendarService: CalendarService {
                 return CalendarFetchResult(
                     events: cachedResponse.events,
                     source: .cache,
-                    lastUpdated: cachedResponse.lastUpdated,
+                    lastUpdated: (try? cacheSourceDate()) ?? now(),
                     isFallback: true
                 )
             }
@@ -194,7 +194,7 @@ final class RemoteCalendarService: CalendarService {
                 return CalendarFetchResult(
                     events: bundledResponse.events,
                     source: .bundled,
-                    lastUpdated: bundledResponse.lastUpdated,
+                    lastUpdated: (try? bundledSourceDate()) ?? now(),
                     isFallback: true
                 )
             }
@@ -232,11 +232,7 @@ final class RemoteCalendarService: CalendarService {
     }
 
     private func loadBundledResponse() throws -> CalendarResponse {
-        guard let fileURL = Bundle.main.url(forResource: "calendar", withExtension: "json", subdirectory: "SampleData")
-            ?? Bundle.main.url(forResource: "calendar", withExtension: "json")
-        else {
-            throw RemoteCalendarServiceError.missingBundledFile
-        }
+        let fileURL = try bundledFileURL()
 
         let data = try Data(contentsOf: fileURL)
         do {
@@ -244,6 +240,15 @@ final class RemoteCalendarService: CalendarService {
         } catch {
             throw RemoteCalendarServiceError.invalidPayload
         }
+    }
+
+    private func bundledFileURL() throws -> URL {
+        guard let fileURL = Bundle.main.url(forResource: "calendar", withExtension: "json", subdirectory: "SampleData")
+            ?? Bundle.main.url(forResource: "calendar", withExtension: "json") else {
+            throw RemoteCalendarServiceError.missingBundledFile
+        }
+
+        return fileURL
     }
 
     private func loadCachedResponse() throws -> CalendarResponse {
@@ -292,6 +297,14 @@ final class RemoteCalendarService: CalendarService {
             .appendingPathComponent("calendar-cache.json")
     }
 
+    private func cacheSourceDate() throws -> Date {
+        try itemModificationDate(at: cacheFileURL()) ?? now()
+    }
+
+    private func bundledSourceDate() throws -> Date {
+        try itemModificationDate(at: bundledFileURL()) ?? now()
+    }
+
     private func lastRemoteCheckFileURL() throws -> URL {
         try cacheFileURL()
             .deletingLastPathComponent()
@@ -331,6 +344,11 @@ final class RemoteCalendarService: CalendarService {
         }
 
         try Self.lastRemoteCheckFormatter.string(from: date).write(to: fileURL, atomically: true, encoding: .utf8)
+    }
+
+    private func itemModificationDate(at fileURL: URL) throws -> Date? {
+        let attributes = try fileManager.attributesOfItem(atPath: fileURL.path)
+        return attributes[.modificationDate] as? Date
     }
 
     static func clearCache(fileManager: FileManager = .default) throws {

@@ -122,6 +122,39 @@ struct RemoteCalendarServiceTests {
     }
 
     @Test
+    func refreshReportsActualRefreshTimeInsteadOfEventTime() async throws {
+        let fileManager = TestFileManager()
+        let session = makeSession()
+        let formatter = ISO8601DateFormatter()
+        let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
+        let weekEnd = try #require(formatter.date(from: "2026-04-17T23:59:59Z"))
+        let refreshTime = try #require(formatter.date(from: "2026-04-13T09:45:00Z"))
+
+        MockURLProtocol.reset()
+        MockURLProtocol.responseData = responseData(
+            weekOf: "2026-04-13",
+            lastUpdated: "2026-04-20T12:00:00Z",
+            eventID: "future-dated-event",
+            title: "Future Dated Event",
+            timestamp: "2026-04-30T12:30:00Z"
+        )
+
+        let service = RemoteCalendarService(
+            session: session,
+            fileManager: fileManager,
+            now: { refreshTime },
+            cacheLifetime: 24 * 60 * 60,
+            bypassCache: false,
+            preferBundledSource: false
+        )
+
+        let result = try await service.refreshEvents(from: weekStart, to: weekEnd)
+
+        #expect(result.source == .remote)
+        #expect(result.lastUpdated == refreshTime)
+    }
+
+    @Test
     func refreshBypassesFreshCacheAndClearCacheRemovesStoredResponse() async throws {
         let fileManager = TestFileManager()
         let session = makeSession()
