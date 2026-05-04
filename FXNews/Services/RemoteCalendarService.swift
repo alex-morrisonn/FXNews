@@ -1,6 +1,6 @@
 import Foundation
 
-private struct CalendarResponse: Codable {
+struct CalendarResponse: Codable {
     let weekOf: String
     let lastUpdated: Date
     let events: [EconomicEvent]
@@ -27,6 +27,31 @@ private struct CalendarResponse: Codable {
         self.weekOf = Self.inferredWeekOf(from: events)
     }
 
+    static func decode(from data: Data, using decoder: JSONDecoder) throws -> CalendarResponse {
+        do {
+            return try decoder.decode(CalendarResponse.self, from: data)
+        } catch {
+            let lineResponses = try String(decoding: data, as: UTF8.self)
+                .split(whereSeparator: \.isNewline)
+                .map(String.init)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .map { line in
+                    guard let lineData = line.data(using: .utf8) else {
+                        throw RemoteCalendarServiceError.invalidPayload
+                    }
+
+                    return try decoder.decode(CalendarResponse.self, from: lineData)
+                }
+
+            guard !lineResponses.isEmpty else {
+                throw error
+            }
+
+            return merged(lineResponses)
+        }
+    }
+
     private static func inferredWeekOf(from events: [EconomicEvent]) -> String {
         guard let firstTimestamp = events.map(\.timestamp).min() else {
             return ""
@@ -41,11 +66,29 @@ private struct CalendarResponse: Codable {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: startOfWeek)
     }
+
+    private static func merged(_ responses: [CalendarResponse]) -> CalendarResponse {
+        let events = responses
+            .flatMap(\.events)
+            .sorted { $0.timestamp < $1.timestamp }
+
+        let lastUpdated = responses.map(\.lastUpdated).max()
+            ?? events.map(\.timestamp).max()
+            ?? Date()
+
+        return CalendarResponse(
+            weekOf: responses.map(\.weekOf).filter { !$0.isEmpty }.min() ?? inferredWeekOf(from: events),
+            lastUpdated: lastUpdated,
+            events: events
+        )
+    }
 }
 
 final class RemoteCalendarService: CalendarService {
-    static let calendarURL = URL(string: "https://raw.githubusercontent.com/alex-morrisonn/FXNews/main/FXNews/SampleData/calendar.json")!
+    static let calendarURL = URL(string: "https://raw.githubusercontent.com/alex-morrisonn/FXNews/refs/heads/main/FXNews/SampleData/calendar.json")!
     static let productionCacheLifetime: TimeInterval = 24 * 60 * 60
+    static let appOpenRefreshInterval: TimeInterval = 60 * 60
+    private static let lastRemoteCheckFormatter = ISO8601DateFormatter()
 
     private let session: URLSession
     private let fileManager: FileManager
@@ -87,6 +130,12 @@ final class RemoteCalendarService: CalendarService {
 
     func refreshEvents(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
         let result = try await loadResponse(forceRefresh: true)
+        return filteredResult(from: result, startDate: startDate, endDate: endDate)
+    }
+
+    func refreshEventsIfNeededOnAppOpen(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
+        let shouldForceRefresh = try shouldRefreshOnAppOpen()
+        let result = try await loadResponse(forceRefresh: shouldForceRefresh)
         return filteredResult(from: result, startDate: startDate, endDate: endDate)
     }
 
@@ -160,11 +209,13 @@ final class RemoteCalendarService: CalendarService {
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
+        try updateLastRemoteCheckDate(now())
+
         let (data, response) = try await session.data(for: request)
         try validate(response: response)
 
         do {
-            return try decoder.decode(CalendarResponse.self, from: data)
+            return try CalendarResponse.decode(from: data, using: decoder)
         } catch {
             throw RemoteCalendarServiceError.invalidPayload
         }
@@ -189,7 +240,7 @@ final class RemoteCalendarService: CalendarService {
 
         let data = try Data(contentsOf: fileURL)
         do {
-            return try decoder.decode(CalendarResponse.self, from: data)
+            return try CalendarResponse.decode(from: data, using: decoder)
         } catch {
             throw RemoteCalendarServiceError.invalidPayload
         }
@@ -199,7 +250,7 @@ final class RemoteCalendarService: CalendarService {
         let data = try Data(contentsOf: cacheFileURL())
 
         do {
-            return try decoder.decode(CalendarResponse.self, from: data)
+            return try CalendarResponse.decode(from: data, using: decoder)
         } catch {
             throw RemoteCalendarServiceError.invalidPayload
         }
@@ -241,17 +292,65 @@ final class RemoteCalendarService: CalendarService {
             .appendingPathComponent("calendar-cache.json")
     }
 
+    private func lastRemoteCheckFileURL() throws -> URL {
+        try cacheFileURL()
+            .deletingLastPathComponent()
+            .appendingPathComponent("calendar-last-check.txt")
+    }
+
+    private func shouldRefreshOnAppOpen() throws -> Bool {
+        guard let lastRemoteCheckDate = try lastRemoteCheckDate() else {
+            return true
+        }
+
+        return now().timeIntervalSince(lastRemoteCheckDate) >= Self.appOpenRefreshInterval
+    }
+
+    private func lastRemoteCheckDate() throws -> Date? {
+        let fileURL = try lastRemoteCheckFileURL()
+        guard fileManager.fileExists(atPath: fileURL.path) else {
+            return nil
+        }
+
+        let rawValue = try String(contentsOf: fileURL, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !rawValue.isEmpty else {
+            return nil
+        }
+
+        return Self.lastRemoteCheckFormatter.date(from: rawValue)
+    }
+
+    private func updateLastRemoteCheckDate(_ date: Date) throws {
+        let fileURL = try lastRemoteCheckFileURL()
+        let directoryURL = fileURL.deletingLastPathComponent()
+
+        if !fileManager.fileExists(atPath: directoryURL.path) {
+            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        }
+
+        try Self.lastRemoteCheckFormatter.string(from: date).write(to: fileURL, atomically: true, encoding: .utf8)
+    }
+
     static func clearCache(fileManager: FileManager = .default) throws {
         guard let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
             throw RemoteCalendarServiceError.cacheUnavailable
         }
 
-        let cacheURL = cachesDirectory
+        let directoryURL = cachesDirectory
             .appendingPathComponent("fxnews", isDirectory: true)
+        let cacheURL = directoryURL
             .appendingPathComponent("calendar-cache.json")
+        let lastCheckURL = directoryURL
+            .appendingPathComponent("calendar-last-check.txt")
 
         if fileManager.fileExists(atPath: cacheURL.path) {
             try fileManager.removeItem(at: cacheURL)
+        }
+
+        if fileManager.fileExists(atPath: lastCheckURL.path) {
+            try fileManager.removeItem(at: lastCheckURL)
         }
     }
 

@@ -45,9 +45,9 @@ struct EconomicEventDecodingTests {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        let calendar = try decoder.decode(CalendarFixture.self, from: data)
+        let calendar = try CalendarResponse.decode(from: data, using: decoder)
 
-        #expect(calendar.weekOf == "2026-04-13")
+        #expect(calendar.weekOf == "2026-04-20")
         #expect(!calendar.events.isEmpty)
         #expect(calendar.events.allSatisfy { !$0.id.isEmpty && !$0.title.isEmpty })
         #expect(calendar.events.allSatisfy { !$0.countryCode.isEmpty && !$0.currencyCode.isEmpty })
@@ -94,10 +94,4 @@ struct EconomicEventDecodingTests {
         #expect(events[1].countryCode == "US")
         #expect(events[1].impactLevel == .high)
     }
-}
-
-private struct CalendarFixture: Decodable {
-    let weekOf: String
-    let lastUpdated: Date
-    let events: [EconomicEvent]
 }

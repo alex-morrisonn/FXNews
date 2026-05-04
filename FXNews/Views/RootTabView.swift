@@ -2,6 +2,7 @@ import SwiftUI
 
 @MainActor
 struct RootTabView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: CalendarViewModel
     @State private var preferences = UserPreferences()
     @Bindable private var navigationState = AppNavigationState.shared
@@ -47,9 +48,17 @@ struct RootTabView: View {
         .preferredColorScheme(preferences.effectiveColorScheme)
         .task(id: preferences.effectiveTimeZone.identifier) {
             await viewModel.loadCurrentWeek(timeZone: preferences.effectiveTimeZone)
+            await viewModel.refreshIfNeededOnAppOpen()
         }
         .onAppear {
             isShowingOnboarding = !preferences.hasCompletedOnboarding
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+
+            Task {
+                await viewModel.refreshIfNeededOnAppOpen()
+            }
         }
         .task(id: notificationScheduleKey) {
             guard shouldSyncDefaultNotifications else { return }

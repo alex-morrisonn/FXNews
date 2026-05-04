@@ -28,6 +28,11 @@ final class CalendarViewModel {
         await load(interval: interval, forceRefresh: true)
     }
 
+    func refreshIfNeededOnAppOpen() async {
+        let interval = visibleInterval ?? Calendar.tradingWeekInterval()
+        await load(interval: interval, forceRefresh: false, refreshIfNeededOnAppOpen: true)
+    }
+
     func loadWeek(referenceDate: Date = Date(), weekOffset: Int = 0, timeZone: TimeZone = .current) async {
         let interval = Calendar.tradingWeekInterval(referenceDate: referenceDate, weekOffset: weekOffset, timeZone: timeZone)
         await load(interval: interval, forceRefresh: false)
@@ -42,7 +47,7 @@ final class CalendarViewModel {
         lastRefreshDate = nil
     }
 
-    private func load(interval: DateInterval, forceRefresh: Bool) async {
+    private func load(interval: DateInterval, forceRefresh: Bool, refreshIfNeededOnAppOpen: Bool = false) async {
         isLoading = true
         errorMessage = nil
         visibleInterval = interval
@@ -51,6 +56,8 @@ final class CalendarViewModel {
             let result: CalendarFetchResult
             if forceRefresh, let remoteService = service as? RemoteCalendarService {
                 result = try await remoteService.refreshEvents(from: interval.start, to: interval.end)
+            } else if refreshIfNeededOnAppOpen, let remoteService = service as? RemoteCalendarService {
+                result = try await remoteService.refreshEventsIfNeededOnAppOpen(from: interval.start, to: interval.end)
             } else {
                 result = try await service.fetchEvents(from: interval.start, to: interval.end)
             }
