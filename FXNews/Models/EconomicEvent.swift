@@ -101,6 +101,37 @@ struct EconomicEvent: Identifiable, Codable, Hashable {
         try container.encode(relatedPairs, forKey: .relatedPairs)
     }
 
+    func withID(_ id: String) -> EconomicEvent {
+        EconomicEvent(
+            id: id,
+            title: title,
+            countryCode: countryCode,
+            currencyCode: currencyCode,
+            timestamp: timestamp,
+            impactLevel: impactLevel,
+            forecast: forecast,
+            previous: previous,
+            actual: actual,
+            category: category,
+            relatedPairs: relatedPairs
+        )
+    }
+
+    static func uniquingIDs(in events: [EconomicEvent]) -> [EconomicEvent] {
+        var idCounts: [String: Int] = [:]
+
+        return events.map { event in
+            let occurrence = idCounts[event.id, default: 0]
+            idCounts[event.id] = occurrence + 1
+
+            guard occurrence > 0 else {
+                return event
+            }
+
+            return event.withID("\(event.id)--\(occurrence + 1)")
+        }
+    }
+
     private static func decodeCurrencyCode(from container: KeyedDecodingContainer<CodingKeys>) throws -> String {
         if let currencyCode = try container.decodeIfPresent(String.self, forKey: .currencyCode)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
@@ -236,5 +267,17 @@ struct EconomicEvent: Identifiable, Codable, Hashable {
 
     var hasNumericContext: Bool {
         forecast != nil || previous != nil || actual != nil
+    }
+
+    static func calendarDayDisplayOrder(_ lhs: EconomicEvent, _ rhs: EconomicEvent) -> Bool {
+        if lhs.isHoliday != rhs.isHoliday {
+            return lhs.isHoliday
+        }
+
+        if lhs.timestamp != rhs.timestamp {
+            return lhs.timestamp < rhs.timestamp
+        }
+
+        return lhs.id < rhs.id
     }
 }

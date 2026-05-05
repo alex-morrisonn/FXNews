@@ -94,4 +94,75 @@ struct EconomicEventDecodingTests {
         #expect(events[1].countryCode == "US")
         #expect(events[1].impactLevel == .high)
     }
+
+    @Test
+    func calendarDayDisplayOrderPrioritizesHolidaysBeforeTimedEvents() throws {
+        let formatter = ISO8601DateFormatter()
+        let holiday = EconomicEvent(
+            id: "holiday",
+            title: "Bank Holiday",
+            countryCode: "GB",
+            currencyCode: "GBP",
+            timestamp: try #require(formatter.date(from: "2026-05-04T03:00:00Z")),
+            impactLevel: .low
+        )
+        let earlierEvent = EconomicEvent(
+            id: "earlier",
+            title: "Manufacturing PMI",
+            countryCode: "GB",
+            currencyCode: "GBP",
+            timestamp: try #require(formatter.date(from: "2026-05-04T01:00:00Z")),
+            impactLevel: .medium
+        )
+        let laterEvent = EconomicEvent(
+            id: "later",
+            title: "Services PMI",
+            countryCode: "GB",
+            currencyCode: "GBP",
+            timestamp: try #require(formatter.date(from: "2026-05-04T09:00:00Z")),
+            impactLevel: .high
+        )
+
+        let sortedEvents = [laterEvent, earlierEvent, holiday].sorted(by: EconomicEvent.calendarDayDisplayOrder)
+
+        #expect(sortedEvents.map { $0.id } == ["holiday", "earlier", "later"])
+    }
+
+    @Test
+    func uniquingIDsAppendsStableSuffixesForDuplicateEvents() throws {
+        let formatter = ISO8601DateFormatter()
+        let timestamp = try #require(formatter.date(from: "2026-05-07T14:00:00Z"))
+        let first = EconomicEvent(
+            id: "usd-2026-05-07T14:00:00Z-construction-spending-m-m",
+            title: "Construction Spending m/m",
+            countryCode: "US",
+            currencyCode: "USD",
+            timestamp: timestamp,
+            impactLevel: .medium
+        )
+        let second = EconomicEvent(
+            id: "usd-2026-05-07T14:00:00Z-construction-spending-m-m",
+            title: "Construction Spending m/m",
+            countryCode: "US",
+            currencyCode: "USD",
+            timestamp: timestamp,
+            impactLevel: .medium
+        )
+        let third = EconomicEvent(
+            id: "usd-2026-05-07T14:00:00Z-construction-spending-m-m",
+            title: "Construction Spending m/m",
+            countryCode: "US",
+            currencyCode: "USD",
+            timestamp: timestamp,
+            impactLevel: .high
+        )
+
+        let uniqued = EconomicEvent.uniquingIDs(in: [first, second, third])
+
+        #expect(uniqued.map { $0.id } == [
+            "usd-2026-05-07T14:00:00Z-construction-spending-m-m",
+            "usd-2026-05-07T14:00:00Z-construction-spending-m-m--2",
+            "usd-2026-05-07T14:00:00Z-construction-spending-m-m--3"
+        ])
+    }
 }

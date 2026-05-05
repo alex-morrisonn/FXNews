@@ -17,6 +17,8 @@ struct CalendarView: View {
     @State private var shouldScrollToToday = false
     @State private var notificationAlertMessage: String?
     @State private var routedEvent: EconomicEvent?
+    @State private var isShowingFilterSheet = false
+    @State private var viewportWidth: CGFloat = 0
 
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -44,7 +46,7 @@ struct CalendarView: View {
             let normalizedDay = calendar.startOfDay(for: day)
             return DaySection(
                 day: normalizedDay,
-                events: (groupedEvents[normalizedDay] ?? []).sorted { $0.timestamp < $1.timestamp },
+                events: (groupedEvents[normalizedDay] ?? []).sorted(by: EconomicEvent.calendarDayDisplayOrder),
                 isToday: calendar.isDateInToday(normalizedDay)
             )
         }
@@ -80,49 +82,35 @@ struct CalendarView: View {
         Array(Set(allWeekEvents.compactMap(\.category))).sorted()
     }
 
-    private var activeFilterDescriptions: [String] {
-        var filters: [String] = []
+    private var activeFilters: [ActiveCalendarFilter] {
+        var filters: [ActiveCalendarFilter] = []
 
         switch preferences.minimumImpact {
         case .high:
-            filters.append("High impact")
+            filters.append(.impact(.high))
         case .medium:
-            filters.append("Market movers")
+            filters.append(.impact(.medium))
         case .low:
             break
         }
 
         if let currency = preferences.selectedCurrencyCode {
-            filters.append("\(currency) events")
+            filters.append(.currency(currency))
         }
 
         if let country = preferences.selectedCountryCode {
-            filters.append(CountryDisplay.name(for: country))
+            filters.append(.country(country))
         }
 
         if let category = preferences.selectedCategory {
-            filters.append(category)
+            filters.append(.category(category))
         }
 
         if preferences.showOnlyWatchedPairs {
-            filters.append("Watchlist")
+            filters.append(.watchlist)
         }
 
         return filters
-    }
-
-    private var activeFilterSummary: String {
-        let filterCount = activeFilterDescriptions.count
-
-        guard filterCount > 0 else {
-            return "All events"
-        }
-
-        if filterCount <= 2 {
-            return activeFilterDescriptions.joined(separator: " • ")
-        }
-
-        return "\(activeFilterDescriptions[0]) + \(filterCount - 1) more"
     }
 
     private var impactFilterLabel: String {
@@ -136,24 +124,8 @@ struct CalendarView: View {
         }
     }
 
-    private var selectedCurrencyLabel: String {
-        preferences.selectedCurrencyCode ?? "Any"
-    }
-
-    private var selectedCountryLabel: String {
-        guard let countryCode = preferences.selectedCountryCode else {
-            return "Any"
-        }
-
-        return CountryDisplay.name(for: countryCode)
-    }
-
-    private var selectedCategoryLabel: String {
-        preferences.selectedCategory ?? "Any"
-    }
-
-    private var watchlistFilterLabel: String {
-        preferences.showOnlyWatchedPairs ? "Watchlist only" : "All pairs"
+    private var activeFilterSummary: String {
+        activeFilters.isEmpty ? "All events this week" : "\(activeFilters.count) filters active"
     }
 
     private var recentEventCutoff: Date {
@@ -211,22 +183,19 @@ struct CalendarView: View {
                                 Section {
                                     if !collapsedDays.contains(section.day) {
                                         let visibleEvents = visibleEvents(for: section)
-                                        let foldedEvents = foldedEvents(for: section)
 
-                                        if visibleEvents.isEmpty && foldedEvents.isEmpty {
+                                        let archivedEvents = foldedEvents(for: section)
+
+                                        if visibleEvents.isEmpty && archivedEvents.isEmpty {
                                             FXNewsCard {
                                                 Text("No scheduled releases.")
                                                     .font(.subheadline)
                                                     .foregroundStyle(FXNewsPalette.muted)
                                             }
-                                        } else {
-                                            VStack(spacing: 12) {
-                                                eventList(visibleEvents)
-
-                                                if !foldedEvents.isEmpty {
-                                                    foldedEventsGroup(for: section, events: foldedEvents)
-                                                }
-                                            }
+                                        } else if !visibleEvents.isEmpty {
+                                            eventList(visibleEvents)
+                                        } else if expandedPastEventDays.contains(section.day) {
+                                            eventList(archivedEvents)
                                         }
                                     }
                                 } header: {
@@ -234,12 +203,24 @@ struct CalendarView: View {
                                         .id(section.day)
                                 }
                             }
+
                         }
                     }
                 }
             }
             .coordinateSpace(name: "calendar-scroll")
             .background(Color.clear)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear {
+                            viewportWidth = proxy.size.width
+                        }
+                        .onChange(of: proxy.size.width) { _, newWidth in
+                            viewportWidth = newWidth
+                        }
+                }
+            }
             .overlay {
                 if viewModel.isLoading && viewModel.events.isEmpty {
                     ProgressView("Loading events...")
@@ -308,13 +289,24 @@ struct CalendarView: View {
             } message: {
                 Text(notificationAlertMessage ?? "")
             }
+            .sheet(isPresented: $isShowingFilterSheet) {
+                NavigationStack {
+                    CalendarFilterSheet(
+                        preferences: preferences,
+                        availableCurrencies: availableCurrencies,
+                        availableCountries: availableCountries,
+                        availableCategories: availableCategories,
+                        clearFilters: clearFilters
+                    )
+                }
+            }
             .sheet(item: $routedEvent) { event in
                 NavigationStack {
                     EconomicEventDetailView(event: event, preferences: preferences)
                 }
             }
             .animation(.easeInOut(duration: 0.18), value: filteredEvents.map(\.id))
-            .animation(.easeInOut(duration: 0.18), value: activeFilterDescriptions)
+            .animation(.easeInOut(duration: 0.18), value: activeFilters)
         }
     }
 
@@ -349,31 +341,30 @@ struct CalendarView: View {
     @ViewBuilder
     private var freshnessBanner: some View {
         if let freshness = freshnessStatus {
-            FXNewsCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: freshness.iconName)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(freshness.tint)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: freshness.iconName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(freshness.tint)
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(freshness.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(FXNewsPalette.text)
+                Text(freshness.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(FXNewsPalette.text)
 
-                            Text(freshness.timestampLabel)
-                                .font(.caption)
-                                .foregroundStyle(FXNewsPalette.muted)
-                        }
-                    }
+                Text(freshness.timestampLabel)
+                    .font(.caption)
+                    .foregroundStyle(FXNewsPalette.muted)
+                    .lineLimit(1)
 
-                    if let message = freshness.message {
-                        Text(message)
-                            .font(.subheadline)
-                            .foregroundStyle(FXNewsPalette.text)
-                    }
+                Spacer(minLength: 0)
+
+                if let message = freshness.shortMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(freshness.tint)
+                        .lineLimit(1)
                 }
             }
+            .padding(.vertical, 2)
         }
     }
 
@@ -428,94 +419,70 @@ struct CalendarView: View {
     }
 
     private var filterControls: some View {
-        HStack(spacing: 12) {
-            Menu {
-                Section("Quick filters") {
-                    Button("All events") { clearFilters() }
-                    Button("Market movers") { preferences.minimumImpact = .medium }
-                    Button("High-impact only") { preferences.minimumImpact = .high }
+        VStack(alignment: .leading, spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    Button {
+                        isShowingFilterSheet = true
+                    } label: {
+                        FilterMenuLabel(
+                            title: "Filters",
+                            value: activeFilters.isEmpty ? "All events" : activeFilterSummary
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    quickFilterChip(
+                        title: "Market movers",
+                        isSelected: preferences.minimumImpact == .medium
+                    ) {
+                        preferences.minimumImpact = .medium
+                    }
+
+                    quickFilterChip(
+                        title: "High impact",
+                        isSelected: preferences.minimumImpact == .high
+                    ) {
+                        preferences.minimumImpact = .high
+                    }
 
                     if !preferences.watchedPairSymbols.isEmpty {
-                        Button(preferences.showOnlyWatchedPairs ? "Show all pairs" : "Watchlist only") {
+                        quickFilterChip(
+                            title: "Watchlist",
+                            isSelected: preferences.showOnlyWatchedPairs
+                        ) {
                             preferences.showOnlyWatchedPairs.toggle()
                         }
                     }
                 }
+            }
 
-                Menu("Importance: \(impactFilterLabel)") {
-                    Button("All events") { preferences.minimumImpact = .low }
-                    Button("Market movers") { preferences.minimumImpact = .medium }
-                    Button("High-impact only") { preferences.minimumImpact = .high }
-                }
-
-                Menu("Location") {
-                    Menu("Currency: \(selectedCurrencyLabel)") {
-                        Button("Any currency") { preferences.selectedCurrencyCode = nil }
-                        ForEach(availableCurrencies, id: \.self) { currency in
-                            Button(currency) { preferences.selectedCurrencyCode = currency }
-                        }
-                    }
-
-                    Menu("Country: \(selectedCountryLabel)") {
-                        Button("Any country") { preferences.selectedCountryCode = nil }
-                        ForEach(availableCountries, id: \.self) { country in
-                            Button("\(CountryDisplay.flag(for: country)) \(CountryDisplay.name(for: country))") {
-                                preferences.selectedCountryCode = country
+            if !activeFilters.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(activeFilters) { filter in
+                            ActiveFilterChip(filter: filter) {
+                                removeFilter(filter)
                             }
                         }
                     }
                 }
-
-                if !availableCategories.isEmpty {
-                    Menu("Category: \(selectedCategoryLabel)") {
-                        Button("Any category") { preferences.selectedCategory = nil }
-                        ForEach(availableCategories, id: \.self) { category in
-                            Button(category) { preferences.selectedCategory = category }
-                        }
-                    }
-                }
-
-                if !preferences.watchedPairSymbols.isEmpty {
-                    Menu("Pairs: \(watchlistFilterLabel)") {
-                        Button("All pairs") {
-                            preferences.showOnlyWatchedPairs = false
-                        }
-                        Button("Watchlist only") {
-                            preferences.showOnlyWatchedPairs = true
-                        }
-                    }
-                }
-            } label: {
-                FilterMenuLabel(
-                    title: "Filters",
-                    value: activeFilterDescriptions.isEmpty ? "All events" : "\(activeFilterDescriptions.count) active"
-                )
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(activeFilterSummary)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(FXNewsPalette.text)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-
-            if !activeFilterDescriptions.isEmpty {
-                Button("Clear") {
-                    clearFilters()
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(FXNewsPalette.accent)
-                .buttonStyle(.plain)
             }
         }
         .padding(.vertical, 2)
     }
 
     private func dayHeader(for section: DaySection) -> some View {
-        Button {
-            toggleSection(section.day)
+        let visibleCount = visibleEvents(for: section).count
+        let archivedCount = foldedEvents(for: section).count
+        let controlsArchive = visibleCount == 0 && archivedCount > 0
+
+        return Button {
+            toggleSection(
+                section.day,
+                visibleCount: visibleCount,
+                archivedCount: archivedCount
+            )
         } label: {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -523,7 +490,7 @@ struct CalendarView: View {
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(FXNewsPalette.text)
 
-                    Text("\(section.events.count) event\(section.events.count == 1 ? "" : "s")")
+                    Text(dayHeaderSubtitle(visibleCount: visibleCount, archivedCount: archivedCount))
                         .font(.caption)
                         .foregroundStyle(FXNewsPalette.muted)
                 }
@@ -534,14 +501,31 @@ struct CalendarView: View {
 
                 Spacer()
 
-                Image(systemName: collapsedDays.contains(section.day) ? "chevron.down" : "chevron.up")
+                Image(systemName: chevronName(
+                    for: section.day,
+                    visibleCount: visibleCount,
+                    archivedCount: archivedCount
+                ))
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(FXNewsPalette.muted)
+                    .foregroundStyle(controlsArchive ? FXNewsPalette.accent : FXNewsPalette.muted)
             }
-            .padding(.vertical, 8)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
             .background(todayHeaderOffsetReader(isToday: section.isToday))
         }
         .buttonStyle(.plain)
+    }
+
+    private func dayHeaderSubtitle(visibleCount: Int, archivedCount: Int) -> String {
+        if visibleCount > 0 {
+            return "\(visibleCount) upcoming event\(visibleCount == 1 ? "" : "s")"
+        }
+
+        if archivedCount > 0 {
+            return "\(archivedCount) earlier event\(archivedCount == 1 ? "" : "s")"
+        }
+
+        return "No scheduled releases"
     }
 
     private func todayHeaderOffsetReader(isToday: Bool) -> some View {
@@ -570,9 +554,9 @@ struct CalendarView: View {
     private func weekStepperButton(systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.subheadline.weight(.bold))
+                .font(.caption.weight(.bold))
                 .foregroundStyle(FXNewsPalette.text)
-                .frame(width: 40, height: 40)
+                .frame(width: 34, height: 34)
                 .background(
                     Circle()
                         .fill(FXNewsPalette.surfaceStrong)
@@ -589,12 +573,29 @@ struct CalendarView: View {
         EventDateFormatter.dayString(from: day, timeZone: displayTimeZone)
     }
 
-    private func toggleSection(_ day: Date) {
+    private func toggleSection(_ day: Date, visibleCount: Int, archivedCount: Int) {
+        if visibleCount == 0 && archivedCount > 0 {
+            if expandedPastEventDays.contains(day) {
+                expandedPastEventDays.remove(day)
+            } else {
+                expandedPastEventDays.insert(day)
+            }
+            return
+        }
+
         if collapsedDays.contains(day) {
             collapsedDays.remove(day)
         } else {
             collapsedDays.insert(day)
         }
+    }
+
+    private func chevronName(for day: Date, visibleCount: Int, archivedCount: Int) -> String {
+        if visibleCount == 0 && archivedCount > 0 {
+            return expandedPastEventDays.contains(day) ? "chevron.up" : "chevron.down"
+        }
+
+        return collapsedDays.contains(day) ? "chevron.down" : "chevron.up"
     }
 
     private func clearFilters() {
@@ -603,6 +604,40 @@ struct CalendarView: View {
         preferences.selectedCountryCode = nil
         preferences.selectedCategory = nil
         preferences.showOnlyWatchedPairs = false
+    }
+
+    private func removeFilter(_ filter: ActiveCalendarFilter) {
+        switch filter {
+        case .impact:
+            preferences.minimumImpact = .low
+        case .currency:
+            preferences.selectedCurrencyCode = nil
+        case .country:
+            preferences.selectedCountryCode = nil
+        case .category:
+            preferences.selectedCategory = nil
+        case .watchlist:
+            preferences.showOnlyWatchedPairs = false
+        }
+    }
+
+    private func quickFilterChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.white : FXNewsPalette.text)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? FXNewsPalette.accent : FXNewsPalette.surfaceStrong)
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .stroke(FXNewsPalette.stroke, lineWidth: isSelected ? 0 : 1)
+                        }
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     private func visibleEvents(for section: DaySection) -> [EconomicEvent] {
@@ -634,59 +669,6 @@ struct CalendarView: View {
                     }
                 }
             }
-        }
-    }
-
-    private func foldedEventsGroup(for section: DaySection, events: [EconomicEvent]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button {
-                toggleFoldedEvents(for: section.day)
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: isShowingFoldedEvents(for: section.day) ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(FXNewsPalette.muted)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(isShowingFoldedEvents(for: section.day) ? "Hide earlier releases" : "Show earlier releases")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(FXNewsPalette.text)
-
-                        Text("\(events.count) event\(events.count == 1 ? "" : "s") already passed")
-                            .font(.caption)
-                            .foregroundStyle(FXNewsPalette.muted)
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(FXNewsPalette.surface)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(FXNewsPalette.stroke, lineWidth: 1)
-                        }
-                )
-            }
-            .buttonStyle(.plain)
-
-            if isShowingFoldedEvents(for: section.day) {
-                eventList(events)
-            }
-        }
-    }
-
-    private func isShowingFoldedEvents(for day: Date) -> Bool {
-        expandedPastEventDays.contains(day)
-    }
-
-    private func toggleFoldedEvents(for day: Date) {
-        if expandedPastEventDays.contains(day) {
-            expandedPastEventDays.remove(day)
-        } else {
-            expandedPastEventDays.insert(day)
         }
     }
 
@@ -739,8 +721,14 @@ struct CalendarView: View {
     private var weekSwipeGesture: some Gesture {
         DragGesture(minimumDistance: 20)
             .onEnded { value in
+                let edgeInset: CGFloat = 28
+                let swipeThreshold: CGFloat = 110
+                let startedFromEdge = value.startLocation.x <= edgeInset
+                    || (viewportWidth > 0 && value.startLocation.x >= viewportWidth - edgeInset)
+
                 guard abs(value.translation.width) > abs(value.translation.height),
-                      abs(value.translation.width) > 60
+                      abs(value.translation.width) > swipeThreshold,
+                      startedFromEdge
                 else {
                     return
                 }
@@ -795,6 +783,22 @@ private struct FreshnessStatus {
     let message: String?
     let tint: Color
     let iconName: String
+
+    var shortMessage: String? {
+        guard let message else {
+            return nil
+        }
+
+        if title.contains("stale") {
+            return "Refresh recommended"
+        }
+
+        if title.contains("fallback") || title.contains("outdated") {
+            return "Backup data"
+        }
+
+        return message
+    }
 }
 
 private struct EconomicEventRow: View {
@@ -806,12 +810,28 @@ private struct EconomicEventRow: View {
         event.timestamp < Date()
     }
 
+    private var usesPastEventStyling: Bool {
+        !event.isHoliday && isPastEvent
+    }
+
+    private var timeLabel: String {
+        if event.isHoliday {
+            return "All day"
+        }
+
+        return EventDateFormatter.timeString(
+            from: event.timestamp,
+            timeZone: preferences.effectiveTimeZone,
+            use24HourTime: preferences.use24HourTime
+        )
+    }
+
     private var eventTypeLabel: String {
         event.isHoliday ? "Holiday" : event.impactLevel.label
     }
 
     private var eventTypeColor: Color {
-        if isPastEvent {
+        if usesPastEventStyling {
             return FXNewsPalette.muted
         }
 
@@ -819,7 +839,7 @@ private struct EconomicEventRow: View {
     }
 
     private var eventDotColor: Color {
-        if isPastEvent {
+        if usesPastEventStyling {
             return FXNewsPalette.muted
         }
 
@@ -827,24 +847,18 @@ private struct EconomicEventRow: View {
     }
 
     private var primaryTextColor: Color {
-        isPastEvent ? FXNewsPalette.muted : FXNewsPalette.text
+        usesPastEventStyling ? FXNewsPalette.muted : FXNewsPalette.text
     }
 
     private var secondaryTextColor: Color {
-        isPastEvent ? FXNewsPalette.muted.opacity(0.82) : FXNewsPalette.muted
+        usesPastEventStyling ? FXNewsPalette.muted.opacity(0.82) : FXNewsPalette.muted
     }
 
     var body: some View {
         FXNewsCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
-                    Text(
-                        EventDateFormatter.timeString(
-                            from: event.timestamp,
-                            timeZone: preferences.effectiveTimeZone,
-                            use24HourTime: preferences.use24HourTime
-                        )
-                    )
+                    Text(timeLabel)
                     .font(.headline.monospacedDigit().weight(.bold))
                     .foregroundStyle(primaryTextColor)
                     .frame(width: 72, alignment: .leading)
@@ -859,7 +873,7 @@ private struct EconomicEventRow: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 FXNewsPill(
                                     text: "Affects \(event.currencyCode)",
-                                    tint: isPastEvent ? FXNewsPalette.surfaceStrong : FXNewsPalette.accentSoft
+                                    tint: usesPastEventStyling ? FXNewsPalette.surfaceStrong : FXNewsPalette.accentSoft
                                 )
 
                                 Text(event.title)
@@ -875,7 +889,7 @@ private struct EconomicEventRow: View {
                             if isNotificationScheduled {
                                 Image(systemName: "bell.fill")
                                     .font(.caption.weight(.bold))
-                                    .foregroundStyle(isPastEvent ? FXNewsPalette.muted : FXNewsPalette.accent)
+                                    .foregroundStyle(usesPastEventStyling ? FXNewsPalette.muted : FXNewsPalette.accent)
                             }
                         }
 
@@ -884,7 +898,7 @@ private struct EconomicEventRow: View {
                 }
             }
         }
-        .opacity(isPastEvent ? 0.58 : 1)
+        .opacity(usesPastEventStyling ? 0.58 : 1)
     }
 
     private var rowMetadata: some View {
@@ -969,12 +983,17 @@ private struct EconomicEventDetailView: View {
     private var eventDateString: String {
         let timeZone = preferences.effectiveTimeZone
         let day = EventDateFormatter.dayString(from: event.timestamp, timeZone: timeZone)
+        let timezoneLabel = EventDateFormatter.timeZoneLabel(for: timeZone)
+
+        if event.isHoliday {
+            return "\(day) • All day \(timezoneLabel)"
+        }
+
         let time = EventDateFormatter.timeString(
             from: event.timestamp,
             timeZone: timeZone,
             use24HourTime: preferences.use24HourTime
         )
-        let timezoneLabel = EventDateFormatter.timeZoneLabel(for: timeZone)
         return "\(day) at \(time) \(timezoneLabel)"
     }
 
@@ -1058,7 +1077,7 @@ private struct EconomicEventDetailView: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(FXNewsPalette.text)
 
-                    if event.timestamp > Date() {
+                    if !event.isHoliday, event.timestamp > Date() {
                         Text("•")
                             .foregroundStyle(FXNewsPalette.muted)
 
@@ -1677,6 +1696,233 @@ private struct FilterMenuLabel: View {
                         .stroke(FXNewsPalette.stroke, lineWidth: 1)
                 }
         )
+    }
+}
+
+private enum ActiveCalendarFilter: Identifiable, Hashable {
+    case impact(ImpactLevel)
+    case currency(String)
+    case country(String)
+    case category(String)
+    case watchlist
+
+    var id: String {
+        switch self {
+        case .impact(let impact):
+            "impact-\(impact.rawValue)"
+        case .currency(let currency):
+            "currency-\(currency)"
+        case .country(let country):
+            "country-\(country)"
+        case .category(let category):
+            "category-\(category)"
+        case .watchlist:
+            "watchlist"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .impact(.medium):
+            "Market movers"
+        case .impact(.high):
+            "High impact"
+        case .impact(.low):
+            "All events"
+        case .currency(let currency):
+            currency
+        case .country(let country):
+            CountryDisplay.name(for: country)
+        case .category(let category):
+            category
+        case .watchlist:
+            "Watchlist"
+        }
+    }
+}
+
+private struct ActiveFilterChip: View {
+    let filter: ActiveCalendarFilter
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(filter.title)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+
+                Image(systemName: "xmark")
+                    .font(.caption2.weight(.bold))
+            }
+            .foregroundStyle(FXNewsPalette.text)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(FXNewsPalette.surface)
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .stroke(FXNewsPalette.stroke, lineWidth: 1)
+                    }
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct CalendarFilterSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let preferences: UserPreferences
+    let availableCurrencies: [String]
+    let availableCountries: [String]
+    let availableCategories: [String]
+    let clearFilters: () -> Void
+
+    var body: some View {
+        List {
+            Section("Importance") {
+                filterOptionRow(
+                    title: "All events",
+                    isSelected: preferences.minimumImpact == .low
+                ) {
+                    preferences.minimumImpact = .low
+                }
+
+                filterOptionRow(
+                    title: "Market movers",
+                    isSelected: preferences.minimumImpact == .medium
+                ) {
+                    preferences.minimumImpact = .medium
+                }
+
+                filterOptionRow(
+                    title: "High impact",
+                    isSelected: preferences.minimumImpact == .high
+                ) {
+                    preferences.minimumImpact = .high
+                }
+            }
+
+            if !preferences.watchedPairSymbols.isEmpty {
+                Section("Pairs") {
+                    filterOptionRow(
+                        title: "All pairs",
+                        isSelected: !preferences.showOnlyWatchedPairs
+                    ) {
+                        preferences.showOnlyWatchedPairs = false
+                    }
+
+                    filterOptionRow(
+                        title: "Watchlist only",
+                        isSelected: preferences.showOnlyWatchedPairs
+                    ) {
+                        preferences.showOnlyWatchedPairs = true
+                    }
+                }
+            }
+
+            if !availableCurrencies.isEmpty {
+                Section("Currency") {
+                    filterOptionRow(
+                        title: "Any currency",
+                        isSelected: preferences.selectedCurrencyCode == nil
+                    ) {
+                        preferences.selectedCurrencyCode = nil
+                    }
+
+                    ForEach(availableCurrencies, id: \.self) { currency in
+                        filterOptionRow(
+                            title: currency,
+                            isSelected: preferences.selectedCurrencyCode == currency
+                        ) {
+                            preferences.selectedCurrencyCode = currency
+                        }
+                    }
+                }
+            }
+
+            if !availableCountries.isEmpty {
+                Section("Country") {
+                    filterOptionRow(
+                        title: "Any country",
+                        isSelected: preferences.selectedCountryCode == nil
+                    ) {
+                        preferences.selectedCountryCode = nil
+                    }
+
+                    ForEach(availableCountries, id: \.self) { country in
+                        filterOptionRow(
+                            title: "\(CountryDisplay.flag(for: country)) \(CountryDisplay.name(for: country))",
+                            isSelected: preferences.selectedCountryCode == country
+                        ) {
+                            preferences.selectedCountryCode = country
+                        }
+                    }
+                }
+            }
+
+            if !availableCategories.isEmpty {
+                Section("Category") {
+                    filterOptionRow(
+                        title: "Any category",
+                        isSelected: preferences.selectedCategory == nil
+                    ) {
+                        preferences.selectedCategory = nil
+                    }
+
+                    ForEach(availableCategories, id: \.self) { category in
+                        filterOptionRow(
+                            title: category,
+                            isSelected: preferences.selectedCategory == category
+                        ) {
+                            preferences.selectedCategory = category
+                        }
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(FXNewsPalette.backgroundTop)
+        .navigationTitle("Filters")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Reset") {
+                    clearFilters()
+                }
+                .tint(FXNewsPalette.accent)
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                    dismiss()
+                }
+                .font(.subheadline.weight(.semibold))
+                .tint(FXNewsPalette.accent)
+            }
+        }
+    }
+
+    private func filterOptionRow(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(FXNewsPalette.text)
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(FXNewsPalette.accent)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(FXNewsPalette.surface)
     }
 }
 

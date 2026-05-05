@@ -61,7 +61,7 @@ final class CalendarViewModel {
             } else {
                 result = try await service.fetchEvents(from: interval.start, to: interval.end)
             }
-            events = result.events
+            events = EconomicEvent.uniquingIDs(in: result.events)
             dataSource = result.source
             isShowingFallbackData = result.isFallback
             lastRefreshDate = result.lastUpdated

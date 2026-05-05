@@ -7,6 +7,7 @@ protocol MarketActivityService {
 struct MarketActivitySnapshot {
     let score: Double
     let tier: MarketActivityTier
+    let isMarketClosed: Bool
     let statusText: String
     let sparklineSamples: [Double]
 }
@@ -20,11 +21,13 @@ enum MarketActivityTier: String {
 struct EstimatedMarketActivityService: MarketActivityService {
     func snapshot(at date: Date, events: [EconomicEvent]) -> MarketActivitySnapshot {
         let relevantEvents = eventsRelevantToDisplayedDay(containing: date, events: events)
+        let isMarketClosed = !SessionPresentation.isForexMarketOpen(at: date)
         let score = activityScore(at: date, events: relevantEvents)
 
         return MarketActivitySnapshot(
             score: score,
             tier: tier(for: score),
+            isMarketClosed: isMarketClosed,
             statusText: statusText(at: date, score: score, events: relevantEvents),
             sparklineSamples: cachedSparklineSamples(for: date, events: relevantEvents)
         )

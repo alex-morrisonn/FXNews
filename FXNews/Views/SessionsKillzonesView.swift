@@ -307,7 +307,7 @@ private struct MarketBoardPanel: View {
                                     VolumeSidebarCard(
                                         title: "Liquidity",
                                         statusText: activitySnapshot.statusText,
-                                        tag: activitySnapshot.tier.rawValue,
+                                        tag: activitySnapshot.displayLabel,
                                         tagColor: activityColor(for: activitySnapshot.tier)
                                     )
                                     .frame(height: volumeRowHeight)
@@ -509,19 +509,12 @@ private struct MarketSessionTimelineRow: View {
                 .fill(Color.white.opacity(0.12))
 
             VStack(alignment: .leading, spacing: 8) {
-                ZStack(alignment: .leading) {
-                    Capsule(style: .continuous)
-                        .fill(FXNewsPalette.surface)
-                        .frame(height: compact ? 8 : 10)
-
-                    ForEach(Array(state.timelineSegments.enumerated()), id: \.offset) { _, segment in
-                        Capsule(style: .continuous)
-                            .fill(state.definition.color)
-                            .frame(width: max(timelineWidth * segment.length, 10), height: compact ? 8 : 10)
-                            .offset(x: timelineWidth * segment.start)
-                    }
-                }
-                .frame(height: compact ? 8 : 10)
+                SessionTimelineTrack(
+                    color: state.definition.color,
+                    timelineWidth: timelineWidth,
+                    segments: state.timelineSegments,
+                    height: compact ? 8 : 10
+                )
 
                 Text(state.nextTransitionLabel)
                     .font((compact ? Font.caption2 : Font.caption).weight(.semibold))
@@ -566,19 +559,12 @@ private struct CompactMarketTimelineRow: View {
             .padding(.horizontal, 8)
 
             VStack(alignment: .leading, spacing: 4) {
-                ZStack(alignment: .leading) {
-                    Capsule(style: .continuous)
-                        .fill(FXNewsPalette.surface)
-                        .frame(height: 8)
-
-                    ForEach(Array(state.timelineSegments.enumerated()), id: \.offset) { _, segment in
-                        Capsule(style: .continuous)
-                            .fill(state.definition.color)
-                            .frame(width: max(timelineWidth * segment.length, 10), height: 8)
-                            .offset(x: timelineWidth * segment.start)
-                    }
-                }
-                .frame(height: 8)
+                SessionTimelineTrack(
+                    color: state.definition.color,
+                    timelineWidth: timelineWidth,
+                    segments: state.timelineSegments,
+                    height: 8
+                )
             }
         }
         .padding(.vertical, 6)
@@ -586,6 +572,91 @@ private struct CompactMarketTimelineRow: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.white.opacity(0.12))
         )
+    }
+}
+
+private struct SessionTimelineTrack: View {
+    let color: Color
+    let timelineWidth: CGFloat
+    let segments: [TimelineSegment]
+    let height: CGFloat
+
+    private let edgePadding: CGFloat = 6
+
+    var body: some View {
+        let trackWidth = max(timelineWidth, 1)
+
+        ZStack(alignment: .leading) {
+            Capsule(style: .continuous)
+                .fill(FXNewsPalette.surface)
+
+            ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                let rawStart = max(trackWidth * segment.start, 0)
+                let start = rawStart <= 0.5 ? edgePadding : rawStart
+                let remainingWidth = max(trackWidth - start, 0)
+                let segmentWidth = min(trackWidth * segment.length, remainingWidth)
+                let touchesLeadingEdge = rawStart <= 0.5
+                let touchesTrailingEdge = (start + segmentWidth) >= (trackWidth - 0.5)
+
+                if segmentWidth > 0 {
+                    TimelineSegmentShape(
+                        roundLeadingEdge: !touchesLeadingEdge,
+                        roundTrailingEdge: !touchesTrailingEdge
+                    )
+                        .fill(color)
+                        .frame(width: segmentWidth, height: height)
+                        .offset(x: start)
+                }
+            }
+        }
+        .frame(width: trackWidth, height: height, alignment: .leading)
+        .clipShape(Capsule(style: .continuous))
+    }
+}
+
+private struct TimelineSegmentShape: Shape {
+    let roundLeadingEdge: Bool
+    let roundTrailingEdge: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let radius = min(rect.height / 2, rect.width / 2)
+        let leadingRadius = roundLeadingEdge ? radius : 0
+        let trailingRadius = roundTrailingEdge ? radius : 0
+
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + leadingRadius, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - trailingRadius, y: rect.minY))
+
+        if trailingRadius > 0 {
+            path.addArc(
+                center: CGPoint(x: rect.maxX - trailingRadius, y: rect.midY),
+                radius: trailingRadius,
+                startAngle: .degrees(-90),
+                endAngle: .degrees(90),
+                clockwise: false
+            )
+        } else {
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        }
+
+        path.addLine(to: CGPoint(x: rect.minX + leadingRadius, y: rect.maxY))
+
+        if leadingRadius > 0 {
+            path.addArc(
+                center: CGPoint(x: rect.minX + leadingRadius, y: rect.midY),
+                radius: leadingRadius,
+                startAngle: .degrees(90),
+                endAngle: .degrees(-90),
+                clockwise: false
+            )
+        } else {
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        }
+
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -655,7 +726,7 @@ private struct CompactVolumeTimelineRow: View {
 
                 Spacer(minLength: 4)
 
-                FXNewsPill(text: snapshot.tier.rawValue, tint: activityColor.opacity(0.14))
+                FXNewsPill(text: snapshot.displayLabel, tint: activityColor.opacity(0.14))
             }
 
             LiquidityStrip(
@@ -789,7 +860,7 @@ private struct LiquidityStrip: View {
                 .font(.headline)
                 .foregroundStyle(FXNewsPalette.text)
 
-            Text(snapshot.tier.rawValue)
+            Text(snapshot.displayLabel)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(activityColor)
 
@@ -822,6 +893,12 @@ private struct LiquidityStrip: View {
         case .low:
             Color(red: 0.80, green: 0.26, blue: 0.47)
         }
+    }
+}
+
+private extension MarketActivitySnapshot {
+    var displayLabel: String {
+        isMarketClosed ? "Closed" : tier.rawValue
     }
 }
 

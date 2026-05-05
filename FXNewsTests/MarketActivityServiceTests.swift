@@ -12,6 +12,7 @@ struct MarketActivityServiceTests {
         let snapshot = service.snapshot(at: saturday, events: [])
 
         #expect(snapshot.tier == .low)
+        #expect(snapshot.isMarketClosed)
         #expect(snapshot.statusText == "Market closed")
         #expect(snapshot.score >= 0)
         #expect(snapshot.score <= 1)
@@ -35,6 +36,7 @@ struct MarketActivityServiceTests {
         let snapshot = service.snapshot(at: releaseDate, events: [event])
 
         #expect(snapshot.tier == .high)
+        #expect(!snapshot.isMarketClosed)
         #expect(snapshot.statusText == "London/NY overlap")
         #expect(snapshot.score > 0.72)
     }
@@ -54,6 +56,7 @@ struct MarketActivityServiceTests {
 
         let snapshot = service.snapshot(at: releaseDate, events: [event])
 
+        #expect(!snapshot.isMarketClosed)
         #expect(snapshot.statusText == "High-impact release window")
         #expect(snapshot.tier == .medium)
     }
