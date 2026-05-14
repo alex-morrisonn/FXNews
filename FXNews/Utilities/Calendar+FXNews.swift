@@ -41,7 +41,7 @@ extension Calendar {
         calendar.minimumDaysInFirstWeek = 4
 
         let weekInterval = tradingWeekInterval(referenceDate: referenceDate, weekOffset: weekOffset, timeZone: timeZone)
-        return (0..<5).compactMap { dayOffset in
+        return (0..<7).compactMap { dayOffset in
             calendar.date(byAdding: .day, value: dayOffset, to: weekInterval.start)
         }
     }

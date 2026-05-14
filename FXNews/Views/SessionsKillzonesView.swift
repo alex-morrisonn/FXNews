@@ -7,7 +7,7 @@ struct SessionsKillzonesView: View {
 
     @State private var notificationMessage: String?
 
-    private let sessionDefinitions = ForexSessionDefinition.allCases
+    private let notificationDefinitions = MarketBoardDefinition.allCases
 
     var body: some View {
         ScrollView {
@@ -20,13 +20,9 @@ struct SessionsKillzonesView: View {
                     )
 
                     TimelineView(.periodic(from: .now, by: 1)) { context in
-                        let sessionStates = sessionDefinitions.map {
-                            SessionState(definition: $0, now: context.date, displayTimeZone: preferences.effectiveTimeZone)
-                        }
-
                         VStack(alignment: .leading, spacing: FXNewsLayout.sectionSpacing) {
                             marketBoardCard(now: context.date)
-                            notificationsCard(sessionStates: sessionStates)
+                            notificationsCard()
                         }
                     }
                 }
@@ -59,7 +55,7 @@ struct SessionsKillzonesView: View {
         .padding(.top, 8)
     }
 
-    private func notificationsCard(sessionStates: [SessionState]) -> some View {
+    private func notificationsCard() -> some View {
         FXNewsCard {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Notifications")
@@ -70,39 +66,39 @@ struct SessionsKillzonesView: View {
                     .font(.subheadline)
                     .foregroundStyle(FXNewsPalette.muted)
 
-                ForEach(sessionStates) { state in
+                ForEach(notificationDefinitions) { definition in
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(state.definition.title)
+                        Text(definition.cityName)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(FXNewsPalette.text)
 
-                        Toggle(isOn: sessionNotificationBinding(for: state.definition, timing: .warning)) {
+                        Toggle(isOn: sessionNotificationBinding(for: definition, timing: .warning)) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("15 min before open")
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(FXNewsPalette.text)
 
-                                Text("Alerts 15 minutes before \(state.definition.shortTitle) starts.")
+                                Text("Alerts 15 minutes before \(definition.cityName) opens.")
                                     .font(.caption)
                                     .foregroundStyle(FXNewsPalette.muted)
                             }
                         }
                         .tint(FXNewsPalette.accent)
 
-                        Toggle(isOn: sessionNotificationBinding(for: state.definition, timing: .open)) {
+                        Toggle(isOn: sessionNotificationBinding(for: definition, timing: .open)) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("At session open")
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(FXNewsPalette.text)
 
-                                Text("Alerts when \(state.definition.shortTitle) opens.")
+                                Text("Alerts when \(definition.cityName) opens.")
                                     .font(.caption)
                                     .foregroundStyle(FXNewsPalette.muted)
                             }
                         }
                         .tint(FXNewsPalette.accent)
                     }
-                    if state.id != sessionStates.last?.id {
+                    if definition.id != notificationDefinitions.last?.id {
                         Divider()
                             .overlay(FXNewsPalette.stroke)
                     }
@@ -120,7 +116,7 @@ struct SessionsKillzonesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func sessionNotificationBinding(for definition: ForexSessionDefinition, timing: SessionNotificationTiming) -> Binding<Bool> {
+    private func sessionNotificationBinding(for definition: MarketBoardDefinition, timing: SessionNotificationTiming) -> Binding<Bool> {
         Binding(
             get: {
                 sessionNotificationEnabled(for: definition, timing: timing)
@@ -136,14 +132,14 @@ struct SessionsKillzonesView: View {
         )
     }
 
-    private func syncSessionNotification(for definition: ForexSessionDefinition, timing: SessionNotificationTiming, enabled: Bool) async {
+    private func syncSessionNotification(for definition: MarketBoardDefinition, timing: SessionNotificationTiming, enabled: Bool) async {
         do {
             if enabled {
                 try await SessionNotificationStore.scheduleSessionNotification(for: definition, timing: timing, preferences: preferences)
-                notificationMessage = "\(definition.title) \(timing.titleSuffix) notification scheduled."
+                notificationMessage = "\(definition.cityName) \(timing.titleSuffix) notification scheduled."
             } else {
                 await SessionNotificationStore.removeSessionNotification(for: definition, timing: timing)
-                notificationMessage = "\(definition.title) \(timing.titleSuffix) notification removed."
+                notificationMessage = "\(definition.cityName) \(timing.titleSuffix) notification removed."
             }
         } catch {
             if enabled {
@@ -164,16 +160,20 @@ struct SessionsKillzonesView: View {
         )
     }
 
-    private func sessionNotificationEnabled(for definition: ForexSessionDefinition, timing: SessionNotificationTiming) -> Bool {
+    private func sessionNotificationEnabled(for definition: MarketBoardDefinition, timing: SessionNotificationTiming) -> Bool {
         switch (definition, timing) {
-        case (.asian, .warning):
-            preferences.asianSessionNotificationsEnabled
+        case (.sydney, .warning):
+            preferences.sydneySessionNotificationsEnabled
+        case (.tokyo, .warning):
+            preferences.tokyoSessionNotificationsEnabled
         case (.london, .warning):
             preferences.londonSessionNotificationsEnabled
         case (.newYork, .warning):
             preferences.newYorkSessionNotificationsEnabled
-        case (.asian, .open):
-            preferences.asianSessionOpenNotificationsEnabled
+        case (.sydney, .open):
+            preferences.sydneySessionOpenNotificationsEnabled
+        case (.tokyo, .open):
+            preferences.tokyoSessionOpenNotificationsEnabled
         case (.london, .open):
             preferences.londonSessionOpenNotificationsEnabled
         case (.newYork, .open):
@@ -181,16 +181,20 @@ struct SessionsKillzonesView: View {
         }
     }
 
-    private func setSessionNotification(_ definition: ForexSessionDefinition, timing: SessionNotificationTiming, enabled: Bool) {
+    private func setSessionNotification(_ definition: MarketBoardDefinition, timing: SessionNotificationTiming, enabled: Bool) {
         switch (definition, timing) {
-        case (.asian, .warning):
-            preferences.asianSessionNotificationsEnabled = enabled
+        case (.sydney, .warning):
+            preferences.sydneySessionNotificationsEnabled = enabled
+        case (.tokyo, .warning):
+            preferences.tokyoSessionNotificationsEnabled = enabled
         case (.london, .warning):
             preferences.londonSessionNotificationsEnabled = enabled
         case (.newYork, .warning):
             preferences.newYorkSessionNotificationsEnabled = enabled
-        case (.asian, .open):
-            preferences.asianSessionOpenNotificationsEnabled = enabled
+        case (.sydney, .open):
+            preferences.sydneySessionOpenNotificationsEnabled = enabled
+        case (.tokyo, .open):
+            preferences.tokyoSessionOpenNotificationsEnabled = enabled
         case (.london, .open):
             preferences.londonSessionOpenNotificationsEnabled = enabled
         case (.newYork, .open):

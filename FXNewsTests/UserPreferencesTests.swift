@@ -123,8 +123,10 @@ struct UserPreferencesTests {
         preferences.lowImpactNotificationLeadTimeMinutes = 10
         preferences.notificationSoundOption = .prominent
         preferences.quietHoursEnabled = true
-        preferences.asianSessionNotificationsEnabled = true
-        preferences.asianSessionOpenNotificationsEnabled = true
+        preferences.sydneySessionNotificationsEnabled = true
+        preferences.tokyoSessionNotificationsEnabled = true
+        preferences.sydneySessionOpenNotificationsEnabled = true
+        preferences.tokyoSessionOpenNotificationsEnabled = true
         preferences.hasCompletedOnboarding = true
 
         preferences.reset()
@@ -142,9 +144,25 @@ struct UserPreferencesTests {
         #expect(preferences.lowImpactNotificationLeadTimeMinutes == 0)
         #expect(preferences.notificationSoundOption == .subtle)
         #expect(!preferences.quietHoursEnabled)
-        #expect(!preferences.asianSessionNotificationsEnabled)
-        #expect(!preferences.asianSessionOpenNotificationsEnabled)
+        #expect(!preferences.sydneySessionNotificationsEnabled)
+        #expect(!preferences.tokyoSessionNotificationsEnabled)
+        #expect(!preferences.sydneySessionOpenNotificationsEnabled)
+        #expect(!preferences.tokyoSessionOpenNotificationsEnabled)
         #expect(preferences.hasCompletedOnboarding)
+    }
+
+    @Test
+    func legacyAsianSessionNotificationSettingsMigrateToSydney() {
+        let defaults = makeDefaults()
+        defaults.set(true, forKey: "preferences.asianSessionNotificationsEnabled")
+        defaults.set(true, forKey: "preferences.asianSessionOpenNotificationsEnabled")
+
+        let preferences = UserPreferences(defaults: defaults)
+
+        #expect(preferences.sydneySessionNotificationsEnabled)
+        #expect(preferences.sydneySessionOpenNotificationsEnabled)
+        #expect(!preferences.tokyoSessionNotificationsEnabled)
+        #expect(!preferences.tokyoSessionOpenNotificationsEnabled)
     }
 
     @Test

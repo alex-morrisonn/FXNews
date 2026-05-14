@@ -74,8 +74,12 @@ final class UserPreferences {
         didSet { defaults.set(quietHoursEndMinutes, forKey: Keys.quietHoursEndMinutes) }
     }
 
-    var asianSessionNotificationsEnabled: Bool {
-        didSet { defaults.set(asianSessionNotificationsEnabled, forKey: Keys.asianSessionNotificationsEnabled) }
+    var sydneySessionNotificationsEnabled: Bool {
+        didSet { defaults.set(sydneySessionNotificationsEnabled, forKey: Keys.sydneySessionNotificationsEnabled) }
+    }
+
+    var tokyoSessionNotificationsEnabled: Bool {
+        didSet { defaults.set(tokyoSessionNotificationsEnabled, forKey: Keys.tokyoSessionNotificationsEnabled) }
     }
 
     var londonSessionNotificationsEnabled: Bool {
@@ -86,8 +90,12 @@ final class UserPreferences {
         didSet { defaults.set(newYorkSessionNotificationsEnabled, forKey: Keys.newYorkSessionNotificationsEnabled) }
     }
 
-    var asianSessionOpenNotificationsEnabled: Bool {
-        didSet { defaults.set(asianSessionOpenNotificationsEnabled, forKey: Keys.asianSessionOpenNotificationsEnabled) }
+    var sydneySessionOpenNotificationsEnabled: Bool {
+        didSet { defaults.set(sydneySessionOpenNotificationsEnabled, forKey: Keys.sydneySessionOpenNotificationsEnabled) }
+    }
+
+    var tokyoSessionOpenNotificationsEnabled: Bool {
+        didSet { defaults.set(tokyoSessionOpenNotificationsEnabled, forKey: Keys.tokyoSessionOpenNotificationsEnabled) }
     }
 
     var londonSessionOpenNotificationsEnabled: Bool {
@@ -123,10 +131,20 @@ final class UserPreferences {
         self.quietHoursEnabled = defaults.bool(forKey: Keys.quietHoursEnabled)
         self.quietHoursStartMinutes = defaults.object(forKey: Keys.quietHoursStartMinutes) as? Int ?? 22 * 60
         self.quietHoursEndMinutes = defaults.object(forKey: Keys.quietHoursEndMinutes) as? Int ?? 6 * 60
-        self.asianSessionNotificationsEnabled = defaults.bool(forKey: Keys.asianSessionNotificationsEnabled)
+        self.sydneySessionNotificationsEnabled = Self.boolValue(
+            forKey: Keys.sydneySessionNotificationsEnabled,
+            fallbackKey: Keys.asianSessionNotificationsEnabled,
+            defaults: defaults
+        )
+        self.tokyoSessionNotificationsEnabled = defaults.bool(forKey: Keys.tokyoSessionNotificationsEnabled)
         self.londonSessionNotificationsEnabled = defaults.bool(forKey: Keys.londonSessionNotificationsEnabled)
         self.newYorkSessionNotificationsEnabled = defaults.bool(forKey: Keys.newYorkSessionNotificationsEnabled)
-        self.asianSessionOpenNotificationsEnabled = defaults.bool(forKey: Keys.asianSessionOpenNotificationsEnabled)
+        self.sydneySessionOpenNotificationsEnabled = Self.boolValue(
+            forKey: Keys.sydneySessionOpenNotificationsEnabled,
+            fallbackKey: Keys.asianSessionOpenNotificationsEnabled,
+            defaults: defaults
+        )
+        self.tokyoSessionOpenNotificationsEnabled = defaults.bool(forKey: Keys.tokyoSessionOpenNotificationsEnabled)
         self.londonSessionOpenNotificationsEnabled = defaults.bool(forKey: Keys.londonSessionOpenNotificationsEnabled)
         self.newYorkSessionOpenNotificationsEnabled = defaults.bool(forKey: Keys.newYorkSessionOpenNotificationsEnabled)
         self.hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
@@ -182,10 +200,12 @@ final class UserPreferences {
         quietHoursEnabled = false
         quietHoursStartMinutes = 22 * 60
         quietHoursEndMinutes = 6 * 60
-        asianSessionNotificationsEnabled = false
+        sydneySessionNotificationsEnabled = false
+        tokyoSessionNotificationsEnabled = false
         londonSessionNotificationsEnabled = false
         newYorkSessionNotificationsEnabled = false
-        asianSessionOpenNotificationsEnabled = false
+        sydneySessionOpenNotificationsEnabled = false
+        tokyoSessionOpenNotificationsEnabled = false
         londonSessionOpenNotificationsEnabled = false
         newYorkSessionOpenNotificationsEnabled = false
     }
@@ -256,6 +276,14 @@ final class UserPreferences {
             .uppercased()
             .filter(\.isLetter)
     }
+
+    private static func boolValue(forKey key: String, fallbackKey: String, defaults: UserDefaults) -> Bool {
+        if defaults.object(forKey: key) != nil {
+            return defaults.bool(forKey: key)
+        }
+
+        return defaults.bool(forKey: fallbackKey)
+    }
 }
 
 enum NotificationSoundOption: String, CaseIterable, Identifiable {
@@ -317,9 +345,13 @@ private enum Keys {
     static let quietHoursStartMinutes = "preferences.quietHoursStartMinutes"
     static let quietHoursEndMinutes = "preferences.quietHoursEndMinutes"
     static let asianSessionNotificationsEnabled = "preferences.asianSessionNotificationsEnabled"
+    static let sydneySessionNotificationsEnabled = "preferences.sydneySessionNotificationsEnabled"
+    static let tokyoSessionNotificationsEnabled = "preferences.tokyoSessionNotificationsEnabled"
     static let londonSessionNotificationsEnabled = "preferences.londonSessionNotificationsEnabled"
     static let newYorkSessionNotificationsEnabled = "preferences.newYorkSessionNotificationsEnabled"
     static let asianSessionOpenNotificationsEnabled = "preferences.asianSessionOpenNotificationsEnabled"
+    static let sydneySessionOpenNotificationsEnabled = "preferences.sydneySessionOpenNotificationsEnabled"
+    static let tokyoSessionOpenNotificationsEnabled = "preferences.tokyoSessionOpenNotificationsEnabled"
     static let londonSessionOpenNotificationsEnabled = "preferences.londonSessionOpenNotificationsEnabled"
     static let newYorkSessionOpenNotificationsEnabled = "preferences.newYorkSessionOpenNotificationsEnabled"
     static let hasCompletedOnboarding = "preferences.hasCompletedOnboarding"

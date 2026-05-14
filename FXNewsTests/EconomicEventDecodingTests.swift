@@ -47,7 +47,7 @@ struct EconomicEventDecodingTests {
 
         let calendar = try CalendarResponse.decode(from: data, using: decoder)
 
-        #expect(calendar.weekOf == "2026-04-20")
+        #expect(calendar.weekOf == "2026-04-13")
         #expect(!calendar.events.isEmpty)
         #expect(calendar.events.allSatisfy { !$0.id.isEmpty && !$0.title.isEmpty })
         #expect(calendar.events.allSatisfy { !$0.countryCode.isEmpty && !$0.currencyCode.isEmpty })

@@ -119,10 +119,12 @@ struct RootTabView: View {
             "\(preferences.quietHoursEnabled)",
             "\(preferences.quietHoursStartMinutes)",
             "\(preferences.quietHoursEndMinutes)",
-            "\(preferences.asianSessionNotificationsEnabled)",
+            "\(preferences.sydneySessionNotificationsEnabled)",
+            "\(preferences.tokyoSessionNotificationsEnabled)",
             "\(preferences.londonSessionNotificationsEnabled)",
             "\(preferences.newYorkSessionNotificationsEnabled)",
-            "\(preferences.asianSessionOpenNotificationsEnabled)",
+            "\(preferences.sydneySessionOpenNotificationsEnabled)",
+            "\(preferences.tokyoSessionOpenNotificationsEnabled)",
             "\(preferences.londonSessionOpenNotificationsEnabled)",
             "\(preferences.newYorkSessionOpenNotificationsEnabled)"
         ].joined(separator: "::")

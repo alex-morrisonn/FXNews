@@ -1225,7 +1225,7 @@ private struct PairEventCard: View {
 
     private var eventContext: [String] {
         [
-            "\(CountryDisplay.flag(for: event.countryCode)) \(event.currencyCode)",
+            event.currencyCode,
             EventPresentation.categoryLabel(for: event.category)
         ]
     }
@@ -1569,9 +1569,10 @@ private struct PairDashboardSummary: Identifiable {
 
     enum EventRole: Int {
         case shared = 0
-        case quote = 1
-        case base = 2
-        case direct = 3
+        case macroLinked = 1
+        case quote = 2
+        case base = 3
+        case direct = 4
     }
 
     var currencies: [String] {
@@ -1684,7 +1685,7 @@ private struct PairDashboardSummary: Identifiable {
             return signal.isSharedMacroTheme ? FXNewsPalette.warning : FXNewsPalette.accent
         case .quote:
             return signal.isSharedMacroTheme ? FXNewsPalette.warning : FXNewsPalette.accentSoft
-        case .shared:
+        case .macroLinked, .shared:
             return FXNewsPalette.warning
         }
     }
@@ -1777,16 +1778,17 @@ private struct PairDashboardSummary: Identifiable {
 
     private func eventRole(for event: EconomicEvent) -> EventRole {
         let normalizedPairs = Set(event.relatedPairs.map { $0.uppercased() })
+        let eventCurrency = event.currencyCode.uppercased()
 
         if normalizedPairs.contains(symbol.uppercased()) {
-            return .direct
+            return currencies.contains(eventCurrency) ? .direct : .macroLinked
         }
 
-        if event.currencyCode == baseCurrency {
+        if eventCurrency == baseCurrency {
             return .base
         }
 
-        if event.currencyCode == quoteCurrency {
+        if eventCurrency == quoteCurrency {
             return .quote
         }
 
@@ -1812,6 +1814,8 @@ private struct PairDashboardSummary: Identifiable {
             return 28
         case .quote:
             return 22
+        case .macroLinked:
+            return 16
         case .shared:
             return 10
         }
@@ -1874,6 +1878,8 @@ private extension PairDashboardSummary.SignalSummary {
             return isSharedMacroTheme ? "Shared macro theme" : "Base-side risk"
         case .quote:
             return isSharedMacroTheme ? "Shared macro theme" : "Quote-side risk"
+        case .macroLinked:
+            return "Macro-linked"
         case .shared:
             return "Shared macro theme"
         }
@@ -1887,6 +1893,8 @@ private extension PairDashboardSummary.SignalSummary {
             return isSharedMacroTheme ? "This is a broad \(event.currencyCode) driver affecting several watched pairs." : "This hits the base currency directly."
         case .quote:
             return isSharedMacroTheme ? "This is a broad \(event.currencyCode) driver affecting several watched pairs." : "This hits the quote currency directly."
+        case .macroLinked:
+            return "This is macro-linked, not one of the pair's two currencies."
         case .shared:
             return "This is a shared macro driver across your watchlist."
         }
@@ -1900,7 +1908,7 @@ private extension PairDashboardSummary.SignalSummary {
             return isSharedMacroTheme ? FXNewsPalette.warning.opacity(0.16) : FXNewsPalette.accent.opacity(0.14)
         case .quote:
             return isSharedMacroTheme ? FXNewsPalette.warning.opacity(0.16) : FXNewsPalette.accentSoft
-        case .shared:
+        case .macroLinked, .shared:
             return FXNewsPalette.warning.opacity(0.16)
         }
     }
@@ -1913,7 +1921,7 @@ private extension PairDashboardSummary.SignalSummary {
             return isSharedMacroTheme ? FXNewsPalette.warning : FXNewsPalette.accent
         case .quote:
             return isSharedMacroTheme ? FXNewsPalette.warning : FXNewsPalette.text
-        case .shared:
+        case .macroLinked, .shared:
             return FXNewsPalette.warning
         }
     }

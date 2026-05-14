@@ -21,15 +21,15 @@ struct CalendarUtilitiesTests {
     }
 
     @Test
-    func tradingWeekdaysReturnFiveLocalWeekdays() throws {
+    func tradingWeekdaysReturnSevenLocalDays() throws {
         let formatter = ISO8601DateFormatter()
         let referenceDate = try #require(formatter.date(from: "2026-04-15T12:00:00Z"))
         let tokyo = try #require(TimeZone(identifier: "Asia/Tokyo"))
 
         let weekdays = Calendar.tradingWeekdays(referenceDate: referenceDate, timeZone: tokyo)
 
-        #expect(weekdays.count == 5)
+        #expect(weekdays.count == 7)
         #expect(weekdays.first == formatter.date(from: "2026-04-12T15:00:00Z"))
-        #expect(weekdays.last == formatter.date(from: "2026-04-16T15:00:00Z"))
+        #expect(weekdays.last == formatter.date(from: "2026-04-18T15:00:00Z"))
     }
 }

@@ -47,8 +47,11 @@ enum SessionNotificationStore {
         let sessionIdentifiers = existingIdentifiers.filter { $0.hasPrefix(prefix) }
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: sessionIdentifiers)
 
-        if preferences.asianSessionNotificationsEnabled {
-            try? await scheduleSessionNotification(for: .asian, timing: .warning, preferences: preferences)
+        if preferences.sydneySessionNotificationsEnabled {
+            try? await scheduleSessionNotification(for: .sydney, timing: .warning, preferences: preferences)
+        }
+        if preferences.tokyoSessionNotificationsEnabled {
+            try? await scheduleSessionNotification(for: .tokyo, timing: .warning, preferences: preferences)
         }
         if preferences.londonSessionNotificationsEnabled {
             try? await scheduleSessionNotification(for: .london, timing: .warning, preferences: preferences)
@@ -56,8 +59,11 @@ enum SessionNotificationStore {
         if preferences.newYorkSessionNotificationsEnabled {
             try? await scheduleSessionNotification(for: .newYork, timing: .warning, preferences: preferences)
         }
-        if preferences.asianSessionOpenNotificationsEnabled {
-            try? await scheduleSessionNotification(for: .asian, timing: .open, preferences: preferences)
+        if preferences.sydneySessionOpenNotificationsEnabled {
+            try? await scheduleSessionNotification(for: .sydney, timing: .open, preferences: preferences)
+        }
+        if preferences.tokyoSessionOpenNotificationsEnabled {
+            try? await scheduleSessionNotification(for: .tokyo, timing: .open, preferences: preferences)
         }
         if preferences.londonSessionOpenNotificationsEnabled {
             try? await scheduleSessionNotification(for: .london, timing: .open, preferences: preferences)
@@ -68,11 +74,11 @@ enum SessionNotificationStore {
     }
 
     static func scheduleSessionNotification(
-        for definition: ForexSessionDefinition,
+        for definition: MarketBoardDefinition,
         timing: SessionNotificationTiming,
         preferences: UserPreferences
     ) async throws {
-        let nextStart = SessionPresentation.nextInterval(for: definition, after: Date()).start
+        let nextStart = SessionPresentation.nextMarketInterval(for: definition, after: Date()).start
         let fireDate: Date
 
         switch timing {
@@ -83,19 +89,47 @@ enum SessionNotificationStore {
         }
 
         try await scheduleNotification(
-            identifier: prefix + "session." + definition.id + "." + timing.identifierComponent,
-            title: "\(definition.title) Session",
-            body: "\(definition.title) \(timing.bodyText)",
+            identifier: prefix + "session." + notificationIdentifierComponent(for: definition) + "." + timing.identifierComponent,
+            title: "\(definition.cityName) Session",
+            body: "\(definition.cityName) \(timing.bodyText)",
             fireDate: fireDate,
+            additionalIdentifiersToRemove: legacyNotificationIdentifiers(for: definition, timing: timing),
             preferences: preferences,
             timing: timing
         )
     }
 
-    static func removeSessionNotification(for definition: ForexSessionDefinition, timing: SessionNotificationTiming) async {
+    static func removeSessionNotification(for definition: MarketBoardDefinition, timing: SessionNotificationTiming) async {
         UNUserNotificationCenter.current().removePendingNotificationRequests(
-            withIdentifiers: [prefix + "session." + definition.id + "." + timing.identifierComponent]
+            withIdentifiers: [
+                prefix + "session." + notificationIdentifierComponent(for: definition) + "." + timing.identifierComponent
+            ] + legacyNotificationIdentifiers(for: definition, timing: timing)
         )
+    }
+
+    private static func notificationIdentifierComponent(for definition: MarketBoardDefinition) -> String {
+        switch definition {
+        case .sydney:
+            "sydney"
+        case .tokyo:
+            "tokyo"
+        case .london:
+            "london"
+        case .newYork:
+            "new-york"
+        }
+    }
+
+    private static func legacyNotificationIdentifiers(
+        for definition: MarketBoardDefinition,
+        timing: SessionNotificationTiming
+    ) -> [String] {
+        switch definition {
+        case .sydney:
+            [prefix + "session.Asian." + timing.identifierComponent]
+        case .tokyo, .london, .newYork:
+            []
+        }
     }
 
     private static func scheduleNotification(
@@ -103,6 +137,7 @@ enum SessionNotificationStore {
         title: String,
         body: String,
         fireDate: Date,
+        additionalIdentifiersToRemove: [String] = [],
         preferences: UserPreferences,
         timing: SessionNotificationTiming
     ) async throws {
@@ -120,7 +155,7 @@ enum SessionNotificationStore {
         }
 
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        center.removePendingNotificationRequests(withIdentifiers: [identifier] + additionalIdentifiersToRemove)
 
         let content = UNMutableNotificationContent()
         content.title = title

@@ -58,11 +58,12 @@ struct CalendarView: View {
 
     private var filteredEvents: [EconomicEvent] {
         allWeekEvents.filter { event in
-            let matchesImpact = event.impactLevel.rank >= preferences.minimumImpact.rank
+            let matchesImpact = event.isHoliday || event.impactLevel.rank >= preferences.minimumImpact.rank
             let matchesCurrency = preferences.selectedCurrencyCode == nil || event.currencyCode == preferences.selectedCurrencyCode
             let matchesCountry = preferences.selectedCountryCode == nil || event.countryCode == preferences.selectedCountryCode
             let matchesCategory = preferences.selectedCategory == nil || event.category == preferences.selectedCategory
-            let matchesWatchedPairs = !preferences.showOnlyWatchedPairs
+            let matchesWatchedPairs = event.isHoliday
+                || !preferences.showOnlyWatchedPairs
                 || preferences.watchedPairSymbols.isEmpty
                 || preferences.matchesWatchedPair(event)
 
@@ -133,12 +134,12 @@ struct CalendarView: View {
     }
 
     private var weekTitle: String {
-        guard let friday = calendar.date(byAdding: .day, value: 4, to: weekInterval.start) else {
+        guard let sunday = calendar.date(byAdding: .day, value: 6, to: weekInterval.start) else {
             return EventDateFormatter.monthDayString(from: weekInterval.start, timeZone: displayTimeZone)
         }
 
         let start = EventDateFormatter.monthDayString(from: weekInterval.start, timeZone: displayTimeZone)
-        let end = EventDateFormatter.monthDayString(from: friday, timeZone: displayTimeZone)
+        let end = EventDateFormatter.monthDayString(from: sunday, timeZone: displayTimeZone)
         return "\(start) - \(end)"
     }
 

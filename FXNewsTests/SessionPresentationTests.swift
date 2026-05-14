@@ -70,8 +70,8 @@ struct SessionPresentationTests {
         let referenceDate = try #require(formatter.date(from: "2026-04-14T12:00:00Z"))
 
         let segments = SessionPresentation.timelineSegments(for: MarketBoardDefinition.newYork, centeredAt: referenceDate)
-        let expectedStart = (try #require(formatter.date(from: "2026-04-14T13:00:00Z"))).timeIntervalSince(referenceDate.addingTimeInterval(-12 * 60 * 60)) / (24 * 60 * 60)
-        let expectedLength = Double(8 * 60 * 60) / Double(24 * 60 * 60)
+        let expectedStart = (try #require(formatter.date(from: "2026-04-14T12:00:00Z"))).timeIntervalSince(referenceDate.addingTimeInterval(-12 * 60 * 60)) / (24 * 60 * 60)
+        let expectedLength = Double(9 * 60 * 60) / Double(24 * 60 * 60)
 
         #expect(segments.count == 1)
         #expect(abs(segments[0].start - expectedStart) < 0.000001)

@@ -142,7 +142,7 @@ final class RemoteCalendarService: CalendarService {
     private func filteredResult(from result: CalendarFetchResult, startDate: Date, endDate: Date) -> CalendarFetchResult {
         CalendarFetchResult(
             events: result.events
-                .filter { $0.timestamp >= startDate && $0.timestamp <= endDate }
+                .filter { $0.timestamp >= startDate && $0.timestamp < endDate }
                 .sorted { $0.timestamp < $1.timestamp },
             source: result.source,
             lastUpdated: result.lastUpdated,
