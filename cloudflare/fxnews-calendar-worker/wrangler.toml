@@ -1,0 +1,11 @@
+name = "fxnews-calendar-worker"
+main = "src/index.js"
+compatibility_date = "2026-05-24"
+
+kv_namespaces = [
+  { binding = "FXNEWS_CALENDAR", id = "00e49a602b9d41ffa1e841d5cc52cef0" }
+]
+
+[triggers]
+crons = ["*/15 * * * *"]
+

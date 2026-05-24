@@ -26,12 +26,11 @@ struct RemoteCalendarServiceTests {
     }
 
     @Test
-    func appOpenRefreshChecksRemoteWhenLastCheckIsOlderThanOneHour() async throws {
-        let fileManager = TestFileManager()
+    func fetchRequestsViewedWeekFromCloudflareBaseURL() async throws {
         let session = makeSession()
         let formatter = ISO8601DateFormatter()
         let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
-        let weekEnd = try #require(formatter.date(from: "2026-04-17T23:59:59Z"))
+        let weekEnd = try #require(formatter.date(from: "2026-04-20T00:00:00Z"))
 
         MockURLProtocol.reset()
         MockURLProtocol.responseData = responseData(
@@ -44,169 +43,81 @@ struct RemoteCalendarServiceTests {
 
         let service = RemoteCalendarService(
             session: session,
-            fileManager: fileManager,
-            now: { weekStart },
-            cacheLifetime: 24 * 60 * 60,
-            bypassCache: false,
-            preferBundledSource: false
+            calendarBaseURL: URL(string: "https://api.example.com/calendar/")!
         )
 
-        _ = try await service.refreshEventsIfNeededOnAppOpen(from: weekStart, to: weekEnd)
+        let result = try await service.fetchEvents(from: weekStart, to: weekEnd)
+
         #expect(MockURLProtocol.requestCount == 1)
-
-        let twoHoursLater = try #require(formatter.date(from: "2026-04-13T02:01:00Z"))
-        let laterService = RemoteCalendarService(
-            session: session,
-            fileManager: fileManager,
-            now: { twoHoursLater },
-            cacheLifetime: 24 * 60 * 60,
-            bypassCache: false,
-            preferBundledSource: false
-        )
-
-        _ = try await laterService.refreshEventsIfNeededOnAppOpen(from: weekStart, to: weekEnd)
-        #expect(MockURLProtocol.requestCount == 2)
-    }
-
-    @Test
-    func appOpenRefreshUsesCacheWhenLastCheckWasWithinOneHour() async throws {
-        let fileManager = TestFileManager()
-        let session = makeSession()
-        let formatter = ISO8601DateFormatter()
-        let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
-        let weekEnd = try #require(formatter.date(from: "2026-04-17T23:59:59Z"))
-
-        MockURLProtocol.reset()
-        MockURLProtocol.responseData = responseData(
-            weekOf: "2026-04-13",
-            lastUpdated: "2026-04-13T06:00:00Z",
-            eventID: "remote-event",
-            title: "Remote Event",
-            timestamp: "2026-04-14T12:30:00Z"
-        )
-
-        let service = RemoteCalendarService(
-            session: session,
-            fileManager: fileManager,
-            now: { weekStart },
-            cacheLifetime: 24 * 60 * 60,
-            bypassCache: false,
-            preferBundledSource: false
-        )
-
-        _ = try await service.refreshEventsIfNeededOnAppOpen(from: weekStart, to: weekEnd)
-        #expect(MockURLProtocol.requestCount == 1)
-
-        MockURLProtocol.responseData = responseData(
-            weekOf: "2026-04-13",
-            lastUpdated: "2026-04-13T07:00:00Z",
-            eventID: "unexpected-second-fetch",
-            title: "Unexpected Second Fetch",
-            timestamp: "2026-04-15T12:30:00Z"
-        )
-
-        let thirtyMinutesLater = try #require(formatter.date(from: "2026-04-13T00:30:00Z"))
-        let laterService = RemoteCalendarService(
-            session: session,
-            fileManager: fileManager,
-            now: { thirtyMinutesLater },
-            cacheLifetime: 24 * 60 * 60,
-            bypassCache: false,
-            preferBundledSource: false
-        )
-
-        let result = try await laterService.refreshEventsIfNeededOnAppOpen(from: weekStart, to: weekEnd)
-        #expect(MockURLProtocol.requestCount == 1)
-        #expect(result.source == .cache)
+        #expect(MockURLProtocol.lastRequestURL?.absoluteString == "https://api.example.com/calendar/2026-04-13.json")
+        #expect(result.source == .remote)
+        #expect(result.isFallback == false)
         #expect(result.events.map(\.id) == ["remote-event"])
     }
 
     @Test
-    func refreshReportsActualRefreshTimeInsteadOfEventTime() async throws {
-        let fileManager = TestFileManager()
+    func appOpenRefreshAlwaysRequestsCloudflare() async throws {
         let session = makeSession()
         let formatter = ISO8601DateFormatter()
         let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
-        let weekEnd = try #require(formatter.date(from: "2026-04-17T23:59:59Z"))
-        let refreshTime = try #require(formatter.date(from: "2026-04-13T09:45:00Z"))
+        let weekEnd = try #require(formatter.date(from: "2026-04-20T00:00:00Z"))
 
         MockURLProtocol.reset()
         MockURLProtocol.responseData = responseData(
             weekOf: "2026-04-13",
-            lastUpdated: "2026-04-20T12:00:00Z",
-            eventID: "future-dated-event",
-            title: "Future Dated Event",
-            timestamp: "2026-04-30T12:30:00Z"
+            lastUpdated: "2026-04-13T06:00:00Z",
+            eventID: "first-event",
+            title: "First Event",
+            timestamp: "2026-04-14T12:30:00Z"
         )
 
         let service = RemoteCalendarService(
             session: session,
-            fileManager: fileManager,
-            now: { refreshTime },
-            cacheLifetime: 24 * 60 * 60,
-            bypassCache: false,
-            preferBundledSource: false
+            calendarBaseURL: URL(string: "https://api.example.com/calendar/")!
+        )
+
+        _ = try await service.refreshEventsIfNeededOnAppOpen(from: weekStart, to: weekEnd)
+
+        MockURLProtocol.responseData = responseData(
+            weekOf: "2026-04-13",
+            lastUpdated: "2026-04-13T07:00:00Z",
+            eventID: "second-event",
+            title: "Second Event",
+            timestamp: "2026-04-15T12:30:00Z"
+        )
+
+        let secondResult = try await service.refreshEventsIfNeededOnAppOpen(from: weekStart, to: weekEnd)
+
+        #expect(MockURLProtocol.requestCount == 2)
+        #expect(secondResult.events.map(\.id) == ["second-event"])
+    }
+
+    @Test
+    func refreshReportsCloudflareLastUpdatedTime() async throws {
+        let session = makeSession()
+        let formatter = ISO8601DateFormatter()
+        let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
+        let weekEnd = try #require(formatter.date(from: "2026-04-20T00:00:00Z"))
+        let lastUpdated = try #require(formatter.date(from: "2026-04-13T06:00:00Z"))
+
+        MockURLProtocol.reset()
+        MockURLProtocol.responseData = responseData(
+            weekOf: "2026-04-13",
+            lastUpdated: "2026-04-13T06:00:00Z",
+            eventID: "remote-event",
+            title: "Remote Event",
+            timestamp: "2026-04-14T12:30:00Z"
+        )
+
+        let service = RemoteCalendarService(
+            session: session,
+            calendarBaseURL: URL(string: "https://api.example.com/calendar/")!
         )
 
         let result = try await service.refreshEvents(from: weekStart, to: weekEnd)
 
         #expect(result.source == .remote)
-        #expect(result.lastUpdated == refreshTime)
-    }
-
-    @Test
-    func refreshBypassesFreshCacheAndClearCacheRemovesStoredResponse() async throws {
-        let fileManager = TestFileManager()
-        let session = makeSession()
-        let formatter = ISO8601DateFormatter()
-        let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
-        let weekEnd = try #require(formatter.date(from: "2026-04-17T23:59:59Z"))
-
-        MockURLProtocol.responseData = responseData(
-            weekOf: "2026-04-13",
-            lastUpdated: "2026-04-13T06:00:00Z",
-            eventID: "cached-event",
-            title: "Cached Event",
-            timestamp: "2026-04-14T12:30:00Z"
-        )
-
-        let service = RemoteCalendarService(
-            session: session,
-            fileManager: fileManager,
-            now: { weekStart },
-            cacheLifetime: 24 * 60 * 60,
-            bypassCache: false,
-            preferBundledSource: false
-        )
-
-        let initial = try await service.fetchEvents(from: weekStart, to: weekEnd)
-        #expect(initial.source == .remote)
-        #expect(initial.events.map(\.id) == ["cached-event"])
-
-        MockURLProtocol.responseData = responseData(
-            weekOf: "2026-04-13",
-            lastUpdated: "2026-04-13T08:00:00Z",
-            eventID: "fresh-event",
-            title: "Fresh Event",
-            timestamp: "2026-04-15T12:30:00Z"
-        )
-
-        let cached = try await service.fetchEvents(from: weekStart, to: weekEnd)
-        #expect(cached.source == .cache)
-        #expect(cached.events.map(\.id) == ["cached-event"])
-
-        let refreshed = try await service.refreshEvents(from: weekStart, to: weekEnd)
-        #expect(refreshed.source == .remote)
-        #expect(refreshed.events.map(\.id) == ["fresh-event"])
-
-        let cacheURL = fileManager.cacheRoot
-            .appendingPathComponent("fxnews", isDirectory: true)
-            .appendingPathComponent("calendar-cache.json")
-        #expect(fileManager.fileExists(atPath: cacheURL.path))
-
-        try RemoteCalendarService.clearCache(fileManager: fileManager)
-
-        #expect(!fileManager.fileExists(atPath: cacheURL.path))
+        #expect(result.lastUpdated == lastUpdated)
     }
 
     private func makeSession() -> URLSession {
@@ -246,31 +157,15 @@ struct RemoteCalendarServiceTests {
     }
 }
 
-private final class TestFileManager: FileManager, @unchecked Sendable {
-    let cacheRoot: URL
-
-    override init() {
-        self.cacheRoot = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        super.init()
-    }
-
-    override func urls(for directory: SearchPathDirectory, in domainMask: SearchPathDomainMask) -> [URL] {
-        guard directory == .cachesDirectory, domainMask == .userDomainMask else {
-            return super.urls(for: directory, in: domainMask)
-        }
-
-        return [cacheRoot]
-    }
-}
-
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     static var responseData = Data()
     static var requestCount = 0
+    static var lastRequestURL: URL?
 
     static func reset() {
         responseData = Data()
         requestCount = 0
+        lastRequestURL = nil
     }
 
     override class func canInit(with request: URLRequest) -> Bool {
@@ -283,6 +178,7 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
 
     override func startLoading() {
         Self.requestCount += 1
+        Self.lastRequestURL = request.url
         let response = HTTPURLResponse(
             url: request.url ?? URL(string: "https://example.com")!,
             statusCode: 200,

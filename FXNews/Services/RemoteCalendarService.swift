@@ -85,57 +85,49 @@ struct CalendarResponse: Codable {
 }
 
 final class RemoteCalendarService: CalendarService {
-    static let calendarURL = URL(string: "https://raw.githubusercontent.com/alex-morrisonn/FXNews/main/FXNews/SampleData/calendar.json")!
-    static let productionCacheLifetime: TimeInterval = 24 * 60 * 60
-    static let appOpenRefreshInterval: TimeInterval = 60 * 60
-    private static let lastRemoteCheckFormatter = ISO8601DateFormatter()
+    static let calendarBaseURL = URL(string: "https://fxnews-calendar-worker.fxnews-alexmorrison.workers.dev/calendar/")!
+    private static let weekFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = .utcGregorian
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     private let session: URLSession
-    private let fileManager: FileManager
     private let decoder: JSONDecoder
-    private let encoder: JSONEncoder
-    private let now: @Sendable () -> Date
-    private let cacheLifetime: TimeInterval
-    private let bypassCache: Bool
-    private let preferBundledSource: Bool
+    private let calendarBaseURL: URL
 
     init(
         session: URLSession = .shared,
         fileManager: FileManager = .default,
+        calendarBaseURL: URL = RemoteCalendarService.calendarBaseURL,
         now: @escaping @Sendable () -> Date = Date.init,
         cacheLifetime: TimeInterval? = nil,
         bypassCache: Bool? = nil,
         preferBundledSource: Bool? = nil
     ) {
         self.session = session
-        self.fileManager = fileManager
-        self.now = now
-        self.cacheLifetime = cacheLifetime ?? Self.productionCacheLifetime
-        self.bypassCache = bypassCache ?? Self.shouldBypassCacheFromRuntimeConfiguration
-        self.preferBundledSource = preferBundledSource ?? Self.shouldPreferBundledSourceFromRuntimeConfiguration
+        self.calendarBaseURL = calendarBaseURL
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         self.decoder = decoder
-
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        self.encoder = encoder
     }
 
     func fetchEvents(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
-        let result = try await loadResponse(forceRefresh: false)
+        let result = try await loadResponse(for: startDate)
         return filteredResult(from: result, startDate: startDate, endDate: endDate)
     }
 
     func refreshEvents(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
-        let result = try await loadResponse(forceRefresh: true)
+        let result = try await loadResponse(for: startDate)
         return filteredResult(from: result, startDate: startDate, endDate: endDate)
     }
 
     func refreshEventsIfNeededOnAppOpen(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
-        let shouldForceRefresh = try shouldRefreshOnAppOpen()
-        let result = try await loadResponse(forceRefresh: shouldForceRefresh)
+        let result = try await loadResponse(for: startDate)
         return filteredResult(from: result, startDate: startDate, endDate: endDate)
     }
 
@@ -146,70 +138,27 @@ final class RemoteCalendarService: CalendarService {
                 .sorted { $0.timestamp < $1.timestamp },
             source: result.source,
             lastUpdated: result.lastUpdated,
-            isFallback: result.isFallback
+            isFallback: false
         )
     }
 
-    private func loadResponse(forceRefresh: Bool) async throws -> CalendarFetchResult {
-        do {
-            if preferBundledSource {
-                let bundledResponse = try loadBundledResponse()
-                return CalendarFetchResult(
-                    events: bundledResponse.events,
-                    source: .bundled,
-                    lastUpdated: try bundledSourceDate(),
-                    isFallback: false
-                )
-            }
+    private func loadResponse(for startDate: Date) async throws -> CalendarFetchResult {
+        let weekIdentifier = Self.weekIdentifier(for: startDate)
+        let remoteResponse = try await fetchRemoteResponse(forWeek: weekIdentifier)
 
-            if !forceRefresh, !bypassCache, try isCacheFresh() {
-                let cachedResponse = try loadCachedResponse()
-                return CalendarFetchResult(
-                    events: cachedResponse.events,
-                    source: .cache,
-                    lastUpdated: try cacheSourceDate(),
-                    isFallback: false
-                )
-            }
-
-            let remoteResponse = try await fetchRemoteResponse()
-            try cache(response: remoteResponse)
-            return CalendarFetchResult(
-                events: remoteResponse.events,
-                source: .remote,
-                lastUpdated: now(),
-                isFallback: false
-            )
-        } catch {
-            if let cachedResponse = try? loadCachedResponse() {
-                return CalendarFetchResult(
-                    events: cachedResponse.events,
-                    source: .cache,
-                    lastUpdated: (try? cacheSourceDate()) ?? now(),
-                    isFallback: true
-                )
-            }
-
-            if let bundledResponse = try? loadBundledResponse() {
-                return CalendarFetchResult(
-                    events: bundledResponse.events,
-                    source: .bundled,
-                    lastUpdated: (try? bundledSourceDate()) ?? now(),
-                    isFallback: true
-                )
-            }
-
-            throw RemoteCalendarServiceError.noDataAvailable
-        }
+        return CalendarFetchResult(
+            events: remoteResponse.events,
+            source: .remote,
+            lastUpdated: remoteResponse.lastUpdated,
+            isFallback: false
+        )
     }
 
-    private func fetchRemoteResponse() async throws -> CalendarResponse {
-        var request = URLRequest(url: Self.calendarURL)
+    private func fetchRemoteResponse(forWeek weekIdentifier: String) async throws -> CalendarResponse {
+        var request = URLRequest(url: remoteCalendarURL(forWeek: weekIdentifier))
         request.timeoutInterval = 30
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        try updateLastRemoteCheckDate(now())
 
         let (data, response) = try await session.data(for: request)
         try validate(response: response)
@@ -219,6 +168,12 @@ final class RemoteCalendarService: CalendarService {
         } catch {
             throw RemoteCalendarServiceError.invalidPayload
         }
+    }
+
+    private func remoteCalendarURL(forWeek weekIdentifier: String) -> URL {
+        calendarBaseURL
+            .appendingPathComponent(weekIdentifier)
+            .appendingPathExtension("json")
     }
 
     private func validate(response: URLResponse) throws {
@@ -231,171 +186,18 @@ final class RemoteCalendarService: CalendarService {
         }
     }
 
-    private func loadBundledResponse() throws -> CalendarResponse {
-        let fileURL = try bundledFileURL()
-
-        let data = try Data(contentsOf: fileURL)
-        do {
-            return try CalendarResponse.decode(from: data, using: decoder)
-        } catch {
-            throw RemoteCalendarServiceError.invalidPayload
-        }
-    }
-
-    private func bundledFileURL() throws -> URL {
-        guard let fileURL = Bundle.main.url(forResource: "calendar", withExtension: "json", subdirectory: "SampleData")
-            ?? Bundle.main.url(forResource: "calendar", withExtension: "json") else {
-            throw RemoteCalendarServiceError.missingBundledFile
-        }
-
-        return fileURL
-    }
-
-    private func loadCachedResponse() throws -> CalendarResponse {
-        let data = try Data(contentsOf: cacheFileURL())
-
-        do {
-            return try CalendarResponse.decode(from: data, using: decoder)
-        } catch {
-            throw RemoteCalendarServiceError.invalidPayload
-        }
-    }
-
-    private func cache(response: CalendarResponse) throws {
-        let data = try encoder.encode(response)
-        let cacheURL = try cacheFileURL()
-        let directoryURL = cacheURL.deletingLastPathComponent()
-
-        if !fileManager.fileExists(atPath: directoryURL.path) {
-            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
-        }
-
-        try data.write(to: cacheURL, options: .atomic)
-    }
-
-    private func isCacheFresh() throws -> Bool {
-        let cacheURL = try cacheFileURL()
-        guard fileManager.fileExists(atPath: cacheURL.path) else {
-            return false
-        }
-
-        let attributes = try fileManager.attributesOfItem(atPath: cacheURL.path)
-        guard let modificationDate = attributes[.modificationDate] as? Date else {
-            return false
-        }
-
-        return now().timeIntervalSince(modificationDate) < cacheLifetime
-    }
-
-    private func cacheFileURL() throws -> URL {
-        guard let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
-            throw RemoteCalendarServiceError.cacheUnavailable
-        }
-
-        return cachesDirectory
-            .appendingPathComponent("fxnews", isDirectory: true)
-            .appendingPathComponent("calendar-cache.json")
-    }
-
-    private func cacheSourceDate() throws -> Date {
-        try itemModificationDate(at: cacheFileURL()) ?? now()
-    }
-
-    private func bundledSourceDate() throws -> Date {
-        try itemModificationDate(at: bundledFileURL()) ?? now()
-    }
-
-    private func lastRemoteCheckFileURL() throws -> URL {
-        try cacheFileURL()
-            .deletingLastPathComponent()
-            .appendingPathComponent("calendar-last-check.txt")
-    }
-
-    private func shouldRefreshOnAppOpen() throws -> Bool {
-        guard let lastRemoteCheckDate = try lastRemoteCheckDate() else {
-            return true
-        }
-
-        return now().timeIntervalSince(lastRemoteCheckDate) >= Self.appOpenRefreshInterval
-    }
-
-    private func lastRemoteCheckDate() throws -> Date? {
-        let fileURL = try lastRemoteCheckFileURL()
-        guard fileManager.fileExists(atPath: fileURL.path) else {
-            return nil
-        }
-
-        let rawValue = try String(contentsOf: fileURL, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !rawValue.isEmpty else {
-            return nil
-        }
-
-        return Self.lastRemoteCheckFormatter.date(from: rawValue)
-    }
-
-    private func updateLastRemoteCheckDate(_ date: Date) throws {
-        let fileURL = try lastRemoteCheckFileURL()
-        let directoryURL = fileURL.deletingLastPathComponent()
-
-        if !fileManager.fileExists(atPath: directoryURL.path) {
-            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
-        }
-
-        try Self.lastRemoteCheckFormatter.string(from: date).write(to: fileURL, atomically: true, encoding: .utf8)
-    }
-
-    private func itemModificationDate(at fileURL: URL) throws -> Date? {
-        let attributes = try fileManager.attributesOfItem(atPath: fileURL.path)
-        return attributes[.modificationDate] as? Date
+    private static func weekIdentifier(for date: Date) -> String {
+        let dateSafelyInsideTradingWeek = date.addingTimeInterval(24 * 60 * 60)
+        let startOfWeek = Calendar.utcGregorian.dateInterval(of: .weekOfYear, for: dateSafelyInsideTradingWeek)?.start ?? dateSafelyInsideTradingWeek
+        return weekFormatter.string(from: startOfWeek)
     }
 
     static func clearCache(fileManager: FileManager = .default) throws {
-        guard let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
-            throw RemoteCalendarServiceError.cacheUnavailable
-        }
-
-        let directoryURL = cachesDirectory
-            .appendingPathComponent("fxnews", isDirectory: true)
-        let cacheURL = directoryURL
-            .appendingPathComponent("calendar-cache.json")
-        let lastCheckURL = directoryURL
-            .appendingPathComponent("calendar-last-check.txt")
-
-        if fileManager.fileExists(atPath: cacheURL.path) {
-            try fileManager.removeItem(at: cacheURL)
-        }
-
-        if fileManager.fileExists(atPath: lastCheckURL.path) {
-            try fileManager.removeItem(at: lastCheckURL)
-        }
-    }
-
-    private static var shouldBypassCacheFromRuntimeConfiguration: Bool {
-        #if DEBUG
-        let processInfo = ProcessInfo.processInfo
-        return processInfo.arguments.contains("-FXNewsDisableCalendarCache")
-            || processInfo.environment["FXNEWS_DISABLE_CALENDAR_CACHE"] == "1"
-        #else
-        return false
-        #endif
-    }
-
-    private static var shouldPreferBundledSourceFromRuntimeConfiguration: Bool {
-        #if DEBUG
-        let processInfo = ProcessInfo.processInfo
-        return processInfo.arguments.contains("-FXNewsUseBundledCalendar")
-            || processInfo.environment["FXNEWS_USE_BUNDLED_CALENDAR"] == "1"
-        #else
-        return false
-        #endif
+        // Calendar data now comes only from Cloudflare, so there is no local calendar cache to clear.
     }
 }
 
 enum RemoteCalendarServiceError: LocalizedError {
-    case cacheUnavailable
-    case missingBundledFile
     case invalidResponse
     case invalidPayload
     case requestFailed(statusCode: Int)
@@ -403,18 +205,14 @@ enum RemoteCalendarServiceError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .cacheUnavailable:
-            return "The local calendar cache is unavailable."
-        case .missingBundledFile:
-            return "The bundled calendar.json file could not be found."
         case .invalidResponse:
             return "The remote calendar returned an invalid response."
         case .invalidPayload:
-            return "The calendar.json file could not be parsed."
+            return "The remote calendar data could not be parsed."
         case let .requestFailed(statusCode):
             return "The remote calendar request failed with status \(statusCode)."
         case .noDataAvailable:
-            return "No calendar data is available. Pull to refresh to try again."
+            return "No calendar data is available from Cloudflare. Pull to refresh to try again."
         }
     }
 }

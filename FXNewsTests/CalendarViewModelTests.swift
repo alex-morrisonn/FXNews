@@ -107,14 +107,41 @@ struct CalendarViewModelTests {
         let viewModel = CalendarViewModel(service: FailingCalendarService())
         let referenceDate = try #require(ISO8601DateFormatter().date(from: "2026-04-13T12:00:00Z"))
 
-        await viewModel.loadWeek(referenceDate: referenceDate)
+        let didLoad = await viewModel.loadWeek(referenceDate: referenceDate)
 
+        #expect(!didLoad)
         #expect(viewModel.events.isEmpty)
         #expect(viewModel.errorMessage == CalendarServiceStubError.unavailable.localizedDescription)
         #expect(viewModel.visibleInterval == Calendar.tradingWeekInterval(referenceDate: referenceDate))
         #expect(viewModel.lastRefreshDate == nil)
         #expect(viewModel.dataSource == nil)
         #expect(!viewModel.isShowingFallbackData)
+        #expect(!viewModel.isLoading)
+    }
+
+    @Test
+    func refreshFailurePreservesExistingEventsAndReportsFailure() async throws {
+        let formatter = ISO8601DateFormatter()
+        let event = EconomicEvent(
+            id: "existing-event",
+            title: "Existing Event",
+            countryCode: "US",
+            currencyCode: "USD",
+            timestamp: try #require(formatter.date(from: "2026-04-14T12:30:00Z")),
+            impactLevel: .high
+        )
+        let service = FlakyCalendarService(successEvents: [event])
+        let viewModel = CalendarViewModel(service: service)
+
+        let didLoad = await viewModel.loadWeek(referenceDate: try #require(formatter.date(from: "2026-04-13T12:00:00Z")))
+        service.shouldFail = true
+        let didRefresh = await viewModel.refresh()
+
+        #expect(didLoad)
+        #expect(!didRefresh)
+        #expect(viewModel.events.map(\.id) == ["existing-event"])
+        #expect(viewModel.errorMessage == CalendarServiceStubError.unavailable.localizedDescription)
+        #expect(viewModel.dataSource == .remote)
         #expect(!viewModel.isLoading)
     }
 
@@ -220,6 +247,28 @@ private struct StubCalendarService: CalendarService {
 private struct FailingCalendarService: CalendarService {
     func fetchEvents(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
         throw CalendarServiceStubError.unavailable
+    }
+}
+
+private final class FlakyCalendarService: CalendarService, @unchecked Sendable {
+    let successEvents: [EconomicEvent]
+    var shouldFail = false
+
+    init(successEvents: [EconomicEvent]) {
+        self.successEvents = successEvents
+    }
+
+    func fetchEvents(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
+        if shouldFail {
+            throw CalendarServiceStubError.unavailable
+        }
+
+        return CalendarFetchResult(
+            events: successEvents.filter { $0.timestamp >= startDate && $0.timestamp <= endDate },
+            source: .remote,
+            lastUpdated: Date(timeIntervalSince1970: 0),
+            isFallback: false
+        )
     }
 }
 

@@ -18,24 +18,28 @@ final class CalendarViewModel {
         self.service = service
     }
 
-    func loadCurrentWeek(timeZone: TimeZone = .current) async {
+    @discardableResult
+    func loadCurrentWeek(timeZone: TimeZone = .current) async -> Bool {
         let interval = Calendar.tradingWeekInterval(timeZone: timeZone)
-        await load(interval: interval, forceRefresh: false)
+        return await load(interval: interval, forceRefresh: false)
     }
 
-    func refresh() async {
+    @discardableResult
+    func refresh() async -> Bool {
         let interval = visibleInterval ?? Calendar.tradingWeekInterval()
-        await load(interval: interval, forceRefresh: true)
+        return await load(interval: interval, forceRefresh: true)
     }
 
-    func refreshIfNeededOnAppOpen() async {
+    @discardableResult
+    func refreshIfNeededOnAppOpen() async -> Bool {
         let interval = visibleInterval ?? Calendar.tradingWeekInterval()
-        await load(interval: interval, forceRefresh: false, refreshIfNeededOnAppOpen: true)
+        return await load(interval: interval, forceRefresh: false, refreshIfNeededOnAppOpen: true)
     }
 
-    func loadWeek(referenceDate: Date = Date(), weekOffset: Int = 0, timeZone: TimeZone = .current) async {
+    @discardableResult
+    func loadWeek(referenceDate: Date = Date(), weekOffset: Int = 0, timeZone: TimeZone = .current) async -> Bool {
         let interval = Calendar.tradingWeekInterval(referenceDate: referenceDate, weekOffset: weekOffset, timeZone: timeZone)
-        await load(interval: interval, forceRefresh: false)
+        return await load(interval: interval, forceRefresh: false)
     }
 
     func clearCache() throws {
@@ -47,7 +51,7 @@ final class CalendarViewModel {
         lastRefreshDate = nil
     }
 
-    private func load(interval: DateInterval, forceRefresh: Bool, refreshIfNeededOnAppOpen: Bool = false) async {
+    private func load(interval: DateInterval, forceRefresh: Bool, refreshIfNeededOnAppOpen: Bool = false) async -> Bool {
         isLoading = true
         errorMessage = nil
         visibleInterval = interval
@@ -65,14 +69,19 @@ final class CalendarViewModel {
             dataSource = result.source
             isShowingFallbackData = result.isFallback
             lastRefreshDate = result.lastUpdated
+            isLoading = false
+            return true
         } catch {
-            events = []
             errorMessage = error.localizedDescription
-            dataSource = nil
             isShowingFallbackData = false
-        }
 
-        isLoading = false
+            if events.isEmpty {
+                dataSource = nil
+            }
+
+            isLoading = false
+            return false
+        }
     }
 
     var availableCurrencies: [String] {

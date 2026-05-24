@@ -193,10 +193,14 @@ struct CalendarView: View {
                                                     .font(.subheadline)
                                                     .foregroundStyle(FXNewsPalette.muted)
                                             }
-                                        } else if !visibleEvents.isEmpty {
-                                            eventList(visibleEvents)
-                                        } else if expandedPastEventDays.contains(section.day) {
-                                            eventList(archivedEvents)
+                                        } else {
+                                            if !archivedEvents.isEmpty {
+                                                foldedEventsDisclosure(for: section.day, events: archivedEvents)
+                                            }
+
+                                            if !visibleEvents.isEmpty {
+                                                eventList(visibleEvents)
+                                            }
                                         }
                                     }
                                 } header: {
@@ -262,8 +266,12 @@ struct CalendarView: View {
                 scheduledNotificationEventIDs = await CalendarNotificationStore.scheduledEventIDs()
             }
             .refreshable {
-                await viewModel.refresh()
-                FXNewsHaptics.success()
+                let didRefresh = await viewModel.refresh()
+                if didRefresh {
+                    FXNewsHaptics.success()
+                } else {
+                    FXNewsHaptics.warning()
+                }
             }
             .simultaneousGesture(weekSwipeGesture, including: .gesture)
             .onPreferenceChange(TodayHeaderOffsetKey.self) { todayHeaderOffset = $0 }
@@ -511,13 +519,19 @@ struct CalendarView: View {
                     .foregroundStyle(controlsArchive ? FXNewsPalette.accent : FXNewsPalette.muted)
             }
             .padding(.top, 10)
-            .padding(.bottom, 4)
+            .padding(.bottom, 8)
+            .background(FXNewsPalette.backgroundTop)
             .background(todayHeaderOffsetReader(isToday: section.isToday))
         }
         .buttonStyle(.plain)
+        .zIndex(1)
     }
 
     private func dayHeaderSubtitle(visibleCount: Int, archivedCount: Int) -> String {
+        if visibleCount > 0, archivedCount > 0 {
+            return "\(visibleCount) upcoming, \(archivedCount) earlier"
+        }
+
         if visibleCount > 0 {
             return "\(visibleCount) upcoming event\(visibleCount == 1 ? "" : "s")"
         }
@@ -647,6 +661,46 @@ struct CalendarView: View {
 
     private func foldedEvents(for section: DaySection) -> [EconomicEvent] {
         section.events.filter { $0.timestamp < recentEventCutoff }
+    }
+
+    @ViewBuilder
+    private func foldedEventsDisclosure(for day: Date, events: [EconomicEvent]) -> some View {
+        let isExpanded = expandedPastEventDays.contains(day)
+        let eventCount = events.count
+
+        Button {
+            if isExpanded {
+                expandedPastEventDays.remove(day)
+            } else {
+                expandedPastEventDays.insert(day)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption.weight(.bold))
+
+                Text(isExpanded ? "Hide earlier events" : "Show \(eventCount) earlier event\(eventCount == 1 ? "" : "s")")
+                    .font(.caption.weight(.semibold))
+
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(FXNewsPalette.accent)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(FXNewsPalette.surfaceStrong)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(FXNewsPalette.stroke, lineWidth: 1)
+                    }
+            )
+        }
+        .buttonStyle(.plain)
+
+        if isExpanded {
+            eventList(events)
+        }
     }
 
     @ViewBuilder
