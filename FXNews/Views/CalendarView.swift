@@ -675,10 +675,7 @@ struct CalendarView: View {
                 expandedPastEventDays.insert(day)
             }
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.caption.weight(.bold))
-
+            HStack {
                 Text(isExpanded ? "Hide earlier events" : "Show \(eventCount) earlier event\(eventCount == 1 ? "" : "s")")
                     .font(.caption.weight(.semibold))
 
