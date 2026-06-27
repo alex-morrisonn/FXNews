@@ -6,7 +6,7 @@ import Observation
 final class AppNavigationState {
     static let shared = AppNavigationState()
 
-    var selectedTab: AppTab = .calendar
+    var selectedTab: AppTab = .today
     var pendingEventID: String?
 
     private init() {}

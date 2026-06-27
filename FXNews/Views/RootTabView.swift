@@ -20,6 +20,12 @@ struct RootTabView: View {
         ZStack {
             FXNewsBackground()
 
+            tabLayer(.today) {
+                NavigationStack {
+                    TodayDashboardView(viewModel: viewModel, preferences: preferences)
+                }
+            }
+
             tabLayer(.calendar) {
                 NavigationStack {
                     CalendarView(viewModel: viewModel, preferences: preferences)
@@ -132,6 +138,7 @@ struct RootTabView: View {
 }
 
 enum AppTab: String, Hashable {
+    case today
     case calendar
     case pairs
     case sessions
@@ -139,6 +146,8 @@ enum AppTab: String, Hashable {
 
     var title: String {
         switch self {
+        case .today:
+            "Today"
         case .calendar:
             "Calendar"
         case .pairs:
@@ -152,6 +161,8 @@ enum AppTab: String, Hashable {
 
     var icon: String {
         switch self {
+        case .today:
+            "gauge.with.dots.needle.bottom.50percent"
         case .calendar:
             "calendar"
         case .pairs:
@@ -167,7 +178,7 @@ enum AppTab: String, Hashable {
 private struct FloatingTabBar: View {
     @Binding var selectedTab: AppTab
 
-    private let tabs: [AppTab] = [.calendar, .pairs, .sessions, .settings]
+    private let tabs: [AppTab] = [.today, .calendar, .pairs, .sessions, .settings]
 
     var body: some View {
         ViewThatFits(in: .horizontal) {

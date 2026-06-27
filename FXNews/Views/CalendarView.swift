@@ -1028,7 +1028,6 @@ private struct EconomicEventDetailView: View {
     let preferences: UserPreferences
     @State private var reminderMessage: String?
     @State private var isShowingReminderOptions = false
-    @State private var isShowingCustomReminderSheet = false
     @State private var customReminderMinutes = 90
     @State private var shareImage: ShareableImage?
 
@@ -1077,24 +1076,17 @@ private struct EconomicEventDetailView: View {
         }
         .background(Color.clear)
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Set Reminder", isPresented: $isShowingReminderOptions, titleVisibility: .visible) {
-            reminderOptionButton(title: "15 minutes before", minutesBefore: 15)
-            reminderOptionButton(title: "30 minutes before", minutesBefore: 30)
-            reminderOptionButton(title: "1 hour before", minutesBefore: 60)
-            Button("Custom") {
-                isShowingCustomReminderSheet = true
-            }
-        }
-        .sheet(isPresented: $isShowingCustomReminderSheet) {
-            CustomReminderSheet(
+        .sheet(isPresented: $isShowingReminderOptions) {
+            ReminderOptionsSheet(
                 event: event,
-                minutesBefore: $customReminderMinutes
+                customReminderMinutes: $customReminderMinutes
             ) { minutes in
                 Task {
                     await scheduleReminder(minutesBefore: minutes)
                 }
             }
-            .presentationDetents([.medium])
+            .presentationDetents([.height(360), .medium])
+            .presentationDragIndicator(.visible)
         }
         .sheet(item: $shareImage) { shareImage in
             ActivityViewController(activityItems: [shareImage.image])
@@ -1244,14 +1236,6 @@ private struct EconomicEventDetailView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(FXNewsPalette.accent)
         )
-    }
-
-    private func reminderOptionButton(title: String, minutesBefore: Int) -> some View {
-        Button(title) {
-            Task {
-                await scheduleReminder(minutesBefore: minutesBefore)
-            }
-        }
     }
 
     private func scheduleReminder(minutesBefore: Int) async {
@@ -1564,6 +1548,83 @@ enum EventPresentation {
         case worse
         case neutral
         case unknown
+    }
+}
+
+private struct ReminderOptionsSheet: View {
+    let event: EconomicEvent
+    @Binding var customReminderMinutes: Int
+    let onSelect: (Int) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var isShowingCustomReminderSheet = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                reminderButton(title: "15 minutes before", minutesBefore: 15)
+                reminderButton(title: "30 minutes before", minutesBefore: 30)
+                reminderButton(title: "1 hour before", minutesBefore: 60)
+
+                Button {
+                    isShowingCustomReminderSheet = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Custom")
+                            .font(.headline.weight(.semibold))
+                    }
+                    .foregroundStyle(FXNewsPalette.text)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(FXNewsPalette.surfaceStrong)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Spacer(minLength: 0)
+            }
+            .padding(20)
+            .navigationTitle("Set Reminder")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+            .sheet(isPresented: $isShowingCustomReminderSheet) {
+                CustomReminderSheet(
+                    event: event,
+                    minutesBefore: $customReminderMinutes
+                ) { minutes in
+                    onSelect(minutes)
+                    dismiss()
+                }
+                .presentationDetents([.medium])
+            }
+        }
+    }
+
+    private func reminderButton(title: String, minutesBefore: Int) -> some View {
+        Button {
+            onSelect(minutesBefore)
+            dismiss()
+        } label: {
+            Text(title)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(FXNewsPalette.text)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(FXNewsPalette.surfaceStrong)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -2159,11 +2220,23 @@ enum CalendarNotificationStore {
     }
 
     private static func reminderBody(for event: EconomicEvent, minutesBefore: Int) -> String {
+        let valueSummary = eventValueSummary(for: event)
+
         if minutesBefore == 0 {
-            return "\(event.currencyCode) releases now."
+            return [
+                "\(event.currencyCode) releases now.",
+                valueSummary
+            ]
+            .compactMap { $0 }
+            .joined(separator: " ")
         }
 
-        return "\(event.currencyCode) releases in \(EventPresentation.reminderLabel(minutesBefore: minutesBefore).replacingOccurrences(of: " before", with: ""))."
+        return [
+            "\(event.currencyCode) releases in \(EventPresentation.reminderLabel(minutesBefore: minutesBefore).replacingOccurrences(of: " before", with: "")).",
+            valueSummary
+        ]
+        .compactMap { $0 }
+        .joined(separator: " ")
     }
 
     private static func defaultLeadTime(for impactLevel: ImpactLevel, preferences: UserPreferences) -> Int? {
@@ -2180,7 +2253,7 @@ enum CalendarNotificationStore {
     private static func scheduleDefaultNotification(for schedule: EventNotificationSchedule, preferences: UserPreferences) async throws {
         let center = UNUserNotificationCenter.current()
         let content = UNMutableNotificationContent()
-        content.title = "\(CountryDisplay.flag(for: schedule.event.countryCode)) \(schedule.event.title) in \(schedule.leadTimeMinutes) min"
+        content.title = "\(schedule.event.title) in \(schedule.leadTimeMinutes) min"
         content.body = defaultBody(for: schedule.event, leadTimeMinutes: schedule.leadTimeMinutes, preferences: preferences)
         content.sound = preferences.notificationSoundOption.unNotificationSound
         content.threadIdentifier = "fxnews.default.event"
@@ -2235,15 +2308,36 @@ enum CalendarNotificationStore {
             return "Your \(pairList) pairs may be affected by thinner holiday liquidity."
         }
 
-        let forecast = event.forecast ?? "—"
-        let previous = event.previous ?? "—"
+        let valueSummary = eventValueSummary(for: event)
+        let baseMessage: String
 
         if watchedPairs.isEmpty {
-            return "Forecast: \(forecast) | Previous: \(previous)"
+            baseMessage = "\(event.currencyCode) event starts in \(leadTimeMinutes) min."
+        } else {
+            let pairList = watchedPairs.prefix(2).joined(separator: " and ")
+            baseMessage = "Your \(pairList) pairs may be affected."
         }
 
-        let pairList = watchedPairs.prefix(2).joined(separator: " and ")
-        return "Your \(pairList) pairs may be affected. Forecast: \(forecast) | Previous: \(previous)"
+        return [
+            baseMessage,
+            valueSummary
+        ]
+        .compactMap { $0 }
+        .joined(separator: " ")
+    }
+
+    private static func eventValueSummary(for event: EconomicEvent) -> String? {
+        let values = [
+            event.forecast.map { "Forecast: \($0)" },
+            event.previous.map { "Previous: \($0)" }
+        ]
+        .compactMap { $0 }
+
+        guard !values.isEmpty else {
+            return nil
+        }
+
+        return values.joined(separator: " | ")
     }
 
     private static func groupedTitle(for schedules: [EventNotificationSchedule], preferences: UserPreferences) -> String {

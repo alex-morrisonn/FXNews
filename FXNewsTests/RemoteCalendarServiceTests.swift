@@ -166,6 +166,7 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
         responseData = Data()
         requestCount = 0
         lastRequestURL = nil
+        try? RemoteCalendarService.clearCache()
     }
 
     override class func canInit(with request: URLRequest) -> Bool {

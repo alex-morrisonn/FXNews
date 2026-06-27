@@ -86,6 +86,7 @@ struct CalendarResponse: Codable {
 
 final class RemoteCalendarService: CalendarService {
     static let calendarBaseURL = URL(string: "https://fxnews-calendar-worker.fxnews-alexmorrison.workers.dev/calendar/")!
+    private static let cacheDirectoryName = "RemoteCalendarCache"
     private static let weekFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = .utcGregorian
@@ -97,7 +98,12 @@ final class RemoteCalendarService: CalendarService {
 
     private let session: URLSession
     private let decoder: JSONDecoder
+    private let encoder: JSONEncoder
+    private let fileManager: FileManager
     private let calendarBaseURL: URL
+    private let cacheLifetime: TimeInterval
+    private let bypassCache: Bool
+    private let preferBundledSource: Bool
 
     init(
         session: URLSession = .shared,
@@ -109,25 +115,33 @@ final class RemoteCalendarService: CalendarService {
         preferBundledSource: Bool? = nil
     ) {
         self.session = session
+        self.fileManager = fileManager
         self.calendarBaseURL = calendarBaseURL
+        self.cacheLifetime = cacheLifetime ?? 60 * 20
+        self.bypassCache = bypassCache ?? false
+        self.preferBundledSource = preferBundledSource ?? false
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         self.decoder = decoder
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        self.encoder = encoder
     }
 
     func fetchEvents(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
-        let result = try await loadResponse(for: startDate)
+        let result = try await loadResponse(for: startDate, policy: .useFreshCache)
         return filteredResult(from: result, startDate: startDate, endDate: endDate)
     }
 
     func refreshEvents(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
-        let result = try await loadResponse(for: startDate)
+        let result = try await loadResponse(for: startDate, policy: .forceRemote)
         return filteredResult(from: result, startDate: startDate, endDate: endDate)
     }
 
     func refreshEventsIfNeededOnAppOpen(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
-        let result = try await loadResponse(for: startDate)
+        let result = try await loadResponse(for: startDate, policy: .forceRemote)
         return filteredResult(from: result, startDate: startDate, endDate: endDate)
     }
 
@@ -138,20 +152,52 @@ final class RemoteCalendarService: CalendarService {
                 .sorted { $0.timestamp < $1.timestamp },
             source: result.source,
             lastUpdated: result.lastUpdated,
-            isFallback: false
+            isFallback: result.isFallback
         )
     }
 
-    private func loadResponse(for startDate: Date) async throws -> CalendarFetchResult {
+    private func loadResponse(for startDate: Date, policy: CachePolicy) async throws -> CalendarFetchResult {
         let weekIdentifier = Self.weekIdentifier(for: startDate)
-        let remoteResponse = try await fetchRemoteResponse(forWeek: weekIdentifier)
 
-        return CalendarFetchResult(
-            events: remoteResponse.events,
-            source: .remote,
-            lastUpdated: remoteResponse.lastUpdated,
-            isFallback: false
-        )
+        if preferBundledSource, let bundledResult = try? loadBundledResponse() {
+            return bundledResult
+        }
+
+        if policy == .useFreshCache, !bypassCache, isCacheFresh(forWeek: weekIdentifier), let cachedResponse = try? loadCachedResponse(forWeek: weekIdentifier) {
+            return CalendarFetchResult(
+                events: cachedResponse.events,
+                source: .cache,
+                lastUpdated: cachedResponse.lastUpdated,
+                isFallback: false
+            )
+        }
+
+        do {
+            let remoteResponse = try await fetchRemoteResponse(forWeek: weekIdentifier)
+            try? saveCachedResponse(remoteResponse, forWeek: weekIdentifier)
+
+            return CalendarFetchResult(
+                events: remoteResponse.events,
+                source: .remote,
+                lastUpdated: remoteResponse.lastUpdated,
+                isFallback: false
+            )
+        } catch {
+            if let cachedResponse = try? loadCachedResponse(forWeek: weekIdentifier) {
+                return CalendarFetchResult(
+                    events: cachedResponse.events,
+                    source: .cache,
+                    lastUpdated: cachedResponse.lastUpdated,
+                    isFallback: true
+                )
+            }
+
+            if let bundledResult = try? loadBundledResponse() {
+                return bundledResult
+            }
+
+            throw error
+        }
     }
 
     private func fetchRemoteResponse(forWeek weekIdentifier: String) async throws -> CalendarResponse {
@@ -193,8 +239,81 @@ final class RemoteCalendarService: CalendarService {
     }
 
     static func clearCache(fileManager: FileManager = .default) throws {
-        // Calendar data now comes only from Cloudflare, so there is no local calendar cache to clear.
+        let cacheDirectory = try cacheDirectory(fileManager: fileManager)
+        guard fileManager.fileExists(atPath: cacheDirectory.path) else {
+            return
+        }
+
+        try fileManager.removeItem(at: cacheDirectory)
     }
+
+    private func loadCachedResponse(forWeek weekIdentifier: String) throws -> CalendarResponse {
+        let data = try Data(contentsOf: cacheURL(forWeek: weekIdentifier))
+        return try decoder.decode(CalendarResponse.self, from: data)
+    }
+
+    private func saveCachedResponse(_ response: CalendarResponse, forWeek weekIdentifier: String) throws {
+        let cacheDirectory = try Self.cacheDirectory(fileManager: fileManager)
+            .appendingPathComponent(cacheNamespace, isDirectory: true)
+        try fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        let data = try encoder.encode(response)
+        try data.write(to: cacheURL(forWeek: weekIdentifier), options: [.atomic])
+    }
+
+    private func cacheURL(forWeek weekIdentifier: String) throws -> URL {
+        try Self.cacheDirectory(fileManager: fileManager)
+            .appendingPathComponent(cacheNamespace, isDirectory: true)
+            .appendingPathComponent(weekIdentifier)
+            .appendingPathExtension("json")
+    }
+
+    private var cacheNamespace: String {
+        calendarBaseURL.absoluteString
+            .lowercased()
+            .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+
+    private func isCacheFresh(forWeek weekIdentifier: String) -> Bool {
+        guard
+            let attributes = try? fileManager.attributesOfItem(atPath: cacheURL(forWeek: weekIdentifier).path),
+            let modificationDate = attributes[.modificationDate] as? Date
+        else {
+            return false
+        }
+
+        return abs(modificationDate.timeIntervalSinceNow) <= cacheLifetime
+    }
+
+    private func loadBundledResponse() throws -> CalendarFetchResult {
+        guard let url = Bundle.main.url(forResource: "calendar", withExtension: "json") else {
+            throw RemoteCalendarServiceError.noDataAvailable
+        }
+
+        let data = try Data(contentsOf: url)
+        let response = try CalendarResponse.decode(from: data, using: decoder)
+        return CalendarFetchResult(
+            events: response.events,
+            source: .bundled,
+            lastUpdated: response.lastUpdated,
+            isFallback: true
+        )
+    }
+
+    private static func cacheDirectory(fileManager: FileManager) throws -> URL {
+        try fileManager.url(
+            for: .cachesDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        .appendingPathComponent(cacheDirectoryName, isDirectory: true)
+    }
+}
+
+private enum CachePolicy {
+    case useFreshCache
+    case forceRemote
 }
 
 enum RemoteCalendarServiceError: LocalizedError {
