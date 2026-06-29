@@ -5,8 +5,10 @@ struct RootTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: CalendarViewModel
     @State private var preferences = UserPreferences()
+    @State private var subscriptionStore = SubscriptionStore()
     @Bindable private var navigationState = AppNavigationState.shared
     @State private var isShowingOnboarding = false
+    @State private var hasAppliedStartupTab = false
 
     init() {
         _viewModel = State(initialValue: CalendarViewModel(service: RemoteCalendarService()))
@@ -22,36 +24,60 @@ struct RootTabView: View {
 
             tabLayer(.today) {
                 NavigationStack {
-                    TodayDashboardView(viewModel: viewModel, preferences: preferences)
+                    TodayDashboardView(
+                        viewModel: viewModel,
+                        preferences: preferences,
+                        subscriptionStore: subscriptionStore
+                    )
                 }
             }
 
             tabLayer(.calendar) {
                 NavigationStack {
-                    CalendarView(viewModel: viewModel, preferences: preferences)
+                    CalendarView(
+                        viewModel: viewModel,
+                        preferences: preferences,
+                        subscriptionStore: subscriptionStore
+                    )
                 }
             }
 
             tabLayer(.pairs) {
                 NavigationStack {
-                    PairsImpactView(viewModel: viewModel, preferences: preferences)
+                    PairsImpactView(
+                        viewModel: viewModel,
+                        preferences: preferences,
+                        subscriptionStore: subscriptionStore
+                    )
                 }
             }
 
             tabLayer(.sessions) {
                 NavigationStack {
-                    SessionsKillzonesView(viewModel: viewModel, preferences: preferences)
+                    SessionsKillzonesView(
+                        viewModel: viewModel,
+                        preferences: preferences,
+                        subscriptionStore: subscriptionStore
+                    )
                 }
             }
 
             tabLayer(.settings) {
                 NavigationStack {
-                    AppSettingsView(viewModel: viewModel, preferences: preferences)
+                    AppSettingsView(
+                        viewModel: viewModel,
+                        preferences: preferences,
+                        subscriptionStore: subscriptionStore
+                    )
                 }
             }
         }
         .animation(.easeInOut(duration: 0.2), value: navigationState.selectedTab)
         .preferredColorScheme(preferences.effectiveColorScheme)
+        .task {
+            await subscriptionStore.load()
+            applyStartupTabIfNeeded()
+        }
         .task(id: preferences.effectiveTimeZone.identifier) {
             await viewModel.loadCurrentWeek(timeZone: preferences.effectiveTimeZone)
             await viewModel.refreshIfNeededOnAppOpen()
@@ -68,7 +94,11 @@ struct RootTabView: View {
         }
         .task(id: notificationScheduleKey) {
             guard shouldSyncDefaultNotifications else { return }
-            await CalendarNotificationStore.syncDefaultNotifications(for: viewModel.events, preferences: preferences)
+            await CalendarNotificationStore.syncDefaultNotifications(
+                for: viewModel.events,
+                preferences: preferences,
+                hasProAccess: subscriptionStore.hasProAccess
+            )
             await SessionNotificationStore.resyncEnabledNotifications(preferences: preferences)
         }
         .safeAreaInset(edge: .bottom) {
@@ -85,6 +115,12 @@ struct RootTabView: View {
                 isShowingOnboarding = false
             }
         }
+    }
+
+    private func applyStartupTabIfNeeded() {
+        guard !hasAppliedStartupTab else { return }
+        hasAppliedStartupTab = true
+        navigationState.selectedTab = subscriptionStore.hasProAccess ? preferences.startupTab.launchableTab : .today
     }
 
     private func tabLayer<Content: View>(
@@ -122,6 +158,7 @@ struct RootTabView: View {
             "\(preferences.lowImpactNotificationLeadTimeMinutes)",
             preferences.watchedPairSymbols.joined(separator: "|"),
             preferences.notificationSoundOption.rawValue,
+            "\(subscriptionStore.hasProAccess)",
             "\(preferences.quietHoursEnabled)",
             "\(preferences.quietHoursStartMinutes)",
             "\(preferences.quietHoursEndMinutes)",
@@ -137,12 +174,22 @@ struct RootTabView: View {
     }
 }
 
-enum AppTab: String, Hashable {
+enum AppTab: String, CaseIterable, Hashable, Identifiable {
     case today
     case calendar
     case pairs
     case sessions
     case settings
+
+    var id: String { rawValue }
+
+    static var launchableCases: [AppTab] {
+        [.today, .calendar, .pairs, .sessions]
+    }
+
+    var launchableTab: AppTab {
+        Self.launchableCases.contains(self) ? self : .today
+    }
 
     var title: String {
         switch self {

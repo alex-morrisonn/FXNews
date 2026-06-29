@@ -5,12 +5,14 @@ import UserNotifications
 struct AppSettingsView: View {
     let viewModel: CalendarViewModel
     @Bindable var preferences: UserPreferences
+    @Bindable var subscriptionStore: SubscriptionStore
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
     @State private var cacheMessage: String?
     @State private var notificationMessage: String?
     @State private var notificationAuthorizationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var isShowingProUpgrade = false
 
     private let notificationLeadTimeOptions = [0, 5, 10, 15, 30, 45, 60]
     private let manualTimeZoneOptions = [
@@ -34,6 +36,7 @@ struct AppSettingsView: View {
                         subtitle: "Manage alerts, display options, app data, and support links."
                     )
 
+                    proSubscriptionCard
                     notificationPreferencesCard
                     displayPreferencesCard
                     dataCard
@@ -60,6 +63,11 @@ struct AppSettingsView: View {
                     .foregroundStyle(FXNewsPalette.text)
             }
         }
+        .sheet(isPresented: $isShowingProUpgrade) {
+            NavigationStack {
+                ProUpgradeView(subscriptionStore: subscriptionStore)
+            }
+        }
         .alert("Cache", isPresented: cacheAlertBinding) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -69,6 +77,55 @@ struct AppSettingsView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(notificationMessage ?? "")
+        }
+    }
+
+    private var proSubscriptionCard: some View {
+        FXNewsCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text("FXNews Pro")
+                        .font(.headline)
+                        .foregroundStyle(FXNewsPalette.text)
+
+                    if subscriptionStore.hasProAccess {
+                        ProBadge()
+                    }
+
+                    Spacer()
+                }
+
+                Text(subscriptionStore.hasProAccess
+                    ? "Your subscription is active. Advanced alerts, session reminders, and pair impact tools are unlocked."
+                    : "Unlock personalized alerts, session reminders, and advanced pair impact tools.")
+                    .font(.subheadline)
+                    .foregroundStyle(FXNewsPalette.muted)
+
+                Button {
+                    isShowingProUpgrade = true
+                } label: {
+                    settingsActionButtonLabel(
+                        title: subscriptionStore.hasProAccess ? "Manage Pro" : "View Pro Plans",
+                        tint: FXNewsPalette.accent
+                    )
+                }
+                .buttonStyle(.plain)
+
+                #if DEBUG
+                Toggle(isOn: $subscriptionStore.debugOverridesProAccess) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Debug Pro Preview")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(FXNewsPalette.text)
+
+                        Text("Switch between Free and Pro locally without changing StoreKit purchases.")
+                            .font(.caption)
+                            .foregroundStyle(FXNewsPalette.muted)
+                    }
+                }
+                .tint(FXNewsPalette.accent)
+                #endif
+            }
         }
     }
 
@@ -98,29 +155,38 @@ struct AppSettingsView: View {
                 .buttonStyle(.plain)
 
                 leadTimePicker(title: "High impact", selection: $preferences.highImpactNotificationLeadTimeMinutes)
-                leadTimePicker(title: "Medium impact", selection: $preferences.mediumImpactNotificationLeadTimeMinutes)
-                leadTimePicker(title: "Low impact", selection: $preferences.lowImpactNotificationLeadTimeMinutes)
 
-                FXNewsInfoRow(label: "Custom reminders", value: "Open any event and tap Set Reminder for a one-off alert.")
+                if subscriptionStore.hasProAccess {
+                    leadTimePicker(title: "Medium impact", selection: $preferences.mediumImpactNotificationLeadTimeMinutes)
+                    leadTimePicker(title: "Low impact", selection: $preferences.lowImpactNotificationLeadTimeMinutes)
 
-                FXNewsToggleRow(
-                    title: "Quiet hours",
-                    subtitle: "Pause reminders during the hours you do not want alerts.",
-                    isOn: $preferences.quietHoursEnabled
-                )
+                    FXNewsInfoRow(label: "Custom reminders", value: "Open any event and tap Set Reminder for a one-off alert.")
 
-                if preferences.quietHoursEnabled {
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 16) {
-                            quietHoursPicker(title: "From", selection: quietHoursBinding(isStart: true))
-                            quietHoursPicker(title: "To", selection: quietHoursBinding(isStart: false))
-                        }
+                    FXNewsToggleRow(
+                        title: "Quiet hours",
+                        subtitle: "Pause reminders during the hours you do not want alerts.",
+                        isOn: $preferences.quietHoursEnabled
+                    )
 
-                        VStack(spacing: 12) {
-                            quietHoursPicker(title: "From", selection: quietHoursBinding(isStart: true))
-                            quietHoursPicker(title: "To", selection: quietHoursBinding(isStart: false))
+                    if preferences.quietHoursEnabled {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 16) {
+                                quietHoursPicker(title: "From", selection: quietHoursBinding(isStart: true))
+                                quietHoursPicker(title: "To", selection: quietHoursBinding(isStart: false))
+                            }
+
+                            VStack(spacing: 12) {
+                                quietHoursPicker(title: "From", selection: quietHoursBinding(isStart: true))
+                                quietHoursPicker(title: "To", selection: quietHoursBinding(isStart: false))
+                            }
                         }
                     }
+                } else {
+                    ProLockedRow(
+                        title: "Advanced reminders are Pro",
+                        subtitle: "High-impact reminders stay free. Pro unlocks medium/low impact alerts, one-off reminders, and quiet hours.",
+                        action: { isShowingProUpgrade = true }
+                    )
                 }
             }
         }
@@ -188,7 +254,31 @@ struct AppSettingsView: View {
                     }
                     .pickerStyle(.segmented)
                 }
+
+                if subscriptionStore.hasProAccess {
+                    startupPagePicker
+                }
             }
+        }
+    }
+
+    private var startupPagePicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Startup page")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FXNewsPalette.text)
+
+            Picker("Startup page", selection: $preferences.startupTab) {
+                ForEach(AppTab.launchableCases) { tab in
+                    Label(tab.title, systemImage: tab.icon).tag(tab)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(FXNewsPalette.accent)
+
+            Text("FX News will open to \(preferences.startupTab.title) on launch while Pro is active.")
+                .font(.caption)
+                .foregroundStyle(FXNewsPalette.muted)
         }
     }
 
@@ -475,7 +565,8 @@ struct AppSettingsView: View {
     NavigationStack {
         AppSettingsView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
-            preferences: UserPreferences()
+            preferences: UserPreferences(),
+            subscriptionStore: SubscriptionStore()
         )
     }
 }
@@ -484,7 +575,8 @@ struct AppSettingsView: View {
     NavigationStack {
         AppSettingsView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
-            preferences: UserPreferences()
+            preferences: UserPreferences(),
+            subscriptionStore: SubscriptionStore()
         )
     }
 }
@@ -501,7 +593,8 @@ enum AppExternalLinks {
     NavigationStack {
         AppSettingsView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
-            preferences: UserPreferences()
+            preferences: UserPreferences(),
+            subscriptionStore: SubscriptionStore()
         )
     }
 }

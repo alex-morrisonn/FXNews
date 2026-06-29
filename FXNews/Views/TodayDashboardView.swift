@@ -4,6 +4,7 @@ import SwiftUI
 struct TodayDashboardView: View {
     let viewModel: CalendarViewModel
     @Bindable var preferences: UserPreferences
+    @Bindable var subscriptionStore: SubscriptionStore
     @Bindable private var navigationState = AppNavigationState.shared
 
     private static let activityService: any MarketActivityService = EstimatedMarketActivityService()
@@ -405,7 +406,8 @@ private struct TodayEventRow: View {
     NavigationStack {
         TodayDashboardView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
-            preferences: UserPreferences()
+            preferences: UserPreferences(),
+            subscriptionStore: SubscriptionStore()
         )
     }
 }

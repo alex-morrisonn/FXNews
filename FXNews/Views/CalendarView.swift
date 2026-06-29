@@ -6,6 +6,7 @@ import UIKit
 struct CalendarView: View {
     let viewModel: CalendarViewModel
     @Bindable var preferences: UserPreferences
+    @Bindable var subscriptionStore: SubscriptionStore
     @Bindable private var navigationState = AppNavigationState.shared
 
     @State private var weekOffset = 0
@@ -18,6 +19,7 @@ struct CalendarView: View {
     @State private var notificationAlertMessage: String?
     @State private var routedEvent: EconomicEvent?
     @State private var isShowingFilterSheet = false
+    @State private var isShowingProUpgrade = false
     @State private var viewportWidth: CGFloat = 0
 
     private var calendar: Calendar {
@@ -59,24 +61,19 @@ struct CalendarView: View {
     private var filteredEvents: [EconomicEvent] {
         allWeekEvents.filter { event in
             let matchesImpact = event.isHoliday || event.impactLevel.rank >= preferences.minimumImpact.rank
-            let matchesCurrency = preferences.selectedCurrencyCode == nil || event.currencyCode == preferences.selectedCurrencyCode
-            let matchesCountry = preferences.selectedCountryCode == nil || event.countryCode == preferences.selectedCountryCode
+            let matchesCurrency = preferences.selectedCurrencyCodes.isEmpty || preferences.selectedCurrencyCodes.contains(event.currencyCode)
             let matchesCategory = preferences.selectedCategory == nil || event.category == preferences.selectedCategory
             let matchesWatchedPairs = event.isHoliday
                 || !preferences.showOnlyWatchedPairs
                 || preferences.watchedPairSymbols.isEmpty
                 || preferences.matchesWatchedPair(event)
 
-            return matchesImpact && matchesCurrency && matchesCountry && matchesCategory && matchesWatchedPairs
+            return matchesImpact && matchesCurrency && matchesCategory && matchesWatchedPairs
         }
     }
 
     private var availableCurrencies: [String] {
         Array(Set(allWeekEvents.map(\.currencyCode))).sorted()
-    }
-
-    private var availableCountries: [String] {
-        Array(Set(allWeekEvents.map(\.countryCode))).sorted()
     }
 
     private var availableCategories: [String] {
@@ -95,12 +92,8 @@ struct CalendarView: View {
             break
         }
 
-        if let currency = preferences.selectedCurrencyCode {
+        for currency in preferences.selectedCurrencyCodes {
             filters.append(.currency(currency))
-        }
-
-        if let country = preferences.selectedCountryCode {
-            filters.append(.country(country))
         }
 
         if let category = preferences.selectedCategory {
@@ -240,9 +233,14 @@ struct CalendarView: View {
                         )
                 }
             }
-            .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("FX News")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(FXNewsPalette.text)
+                }
+
                 if shouldShowJumpToTodayButton {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Jump to today") {
@@ -298,20 +296,30 @@ struct CalendarView: View {
             } message: {
                 Text(notificationAlertMessage ?? "")
             }
+            .sheet(isPresented: $isShowingProUpgrade) {
+                NavigationStack {
+                    ProUpgradeView(subscriptionStore: subscriptionStore)
+                }
+            }
             .sheet(isPresented: $isShowingFilterSheet) {
                 NavigationStack {
                     CalendarFilterSheet(
                         preferences: preferences,
+                        subscriptionStore: subscriptionStore,
                         availableCurrencies: availableCurrencies,
-                        availableCountries: availableCountries,
                         availableCategories: availableCategories,
-                        clearFilters: clearFilters
+                        clearFilters: clearFilters,
+                        showProUpgrade: { isShowingProUpgrade = true }
                     )
                 }
             }
             .sheet(item: $routedEvent) { event in
                 NavigationStack {
-                    EconomicEventDetailView(event: event, preferences: preferences)
+                    EconomicEventDetailView(
+                        event: event,
+                        preferences: preferences,
+                        subscriptionStore: subscriptionStore
+                    )
                 }
             }
             .animation(.easeInOut(duration: 0.18), value: filteredEvents.map(\.id))
@@ -615,7 +623,7 @@ struct CalendarView: View {
 
     private func clearFilters() {
         preferences.minimumImpact = .low
-        preferences.selectedCurrencyCode = nil
+        preferences.selectedCurrencyCodes = []
         preferences.selectedCountryCode = nil
         preferences.selectedCategory = nil
         preferences.showOnlyWatchedPairs = false
@@ -625,10 +633,8 @@ struct CalendarView: View {
         switch filter {
         case .impact:
             preferences.minimumImpact = .low
-        case .currency:
-            preferences.selectedCurrencyCode = nil
-        case .country:
-            preferences.selectedCountryCode = nil
+        case .currency(let currency):
+            preferences.selectedCurrencyCodes.removeAll { $0 == currency }
         case .category:
             preferences.selectedCategory = nil
         case .watchlist:
@@ -705,7 +711,11 @@ struct CalendarView: View {
         ForEach(events) { event in
             let isNotificationScheduled = scheduledNotificationEventIDs.contains(event.id)
             NavigationLink {
-                EconomicEventDetailView(event: event, preferences: preferences)
+                EconomicEventDetailView(
+                    event: event,
+                    preferences: preferences,
+                    subscriptionStore: subscriptionStore
+                )
             } label: {
                 EconomicEventRow(
                     event: event,
@@ -716,8 +726,12 @@ struct CalendarView: View {
             .buttonStyle(.plain)
             .contextMenu {
                 Button(isNotificationScheduled ? "Remove notification" : "Notify me") {
-                    Task {
-                        await toggleNotification(for: event)
+                    if subscriptionStore.hasProAccess || isNotificationScheduled {
+                        Task {
+                            await toggleNotification(for: event)
+                        }
+                    } else {
+                        isShowingProUpgrade = true
                     }
                 }
             }
@@ -1025,9 +1039,11 @@ private struct EconomicEventRow: View {
 private struct EconomicEventDetailView: View {
     @Environment(\.displayScale) private var displayScale
     let event: EconomicEvent
-    let preferences: UserPreferences
+    @Bindable var preferences: UserPreferences
+    @Bindable var subscriptionStore: SubscriptionStore
     @State private var reminderMessage: String?
     @State private var isShowingReminderOptions = false
+    @State private var isShowingProUpgrade = false
     @State private var customReminderMinutes = 90
     @State private var shareImage: ShareableImage?
 
@@ -1076,6 +1092,11 @@ private struct EconomicEventDetailView: View {
         }
         .background(Color.clear)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isShowingProUpgrade) {
+            NavigationStack {
+                ProUpgradeView(subscriptionStore: subscriptionStore)
+            }
+        }
         .sheet(isPresented: $isShowingReminderOptions) {
             ReminderOptionsSheet(
                 event: event,
@@ -1200,9 +1221,13 @@ private struct EconomicEventDetailView: View {
 
                 HStack(spacing: 12) {
                     Button {
-                        isShowingReminderOptions = true
+                        if subscriptionStore.hasProAccess {
+                            isShowingReminderOptions = true
+                        } else {
+                            isShowingProUpgrade = true
+                        }
                     } label: {
-                        actionButtonLabel(title: "Set Reminder", systemImage: "bell.badge")
+                        actionButtonLabel(title: "Set Reminder", systemImage: subscriptionStore.hasProAccess ? "bell.badge" : "lock.fill")
                     }
                     .buttonStyle(.plain)
 
@@ -1815,7 +1840,6 @@ private struct FilterMenuLabel: View {
 private enum ActiveCalendarFilter: Identifiable, Hashable {
     case impact(ImpactLevel)
     case currency(String)
-    case country(String)
     case category(String)
     case watchlist
 
@@ -1825,8 +1849,6 @@ private enum ActiveCalendarFilter: Identifiable, Hashable {
             "impact-\(impact.rawValue)"
         case .currency(let currency):
             "currency-\(currency)"
-        case .country(let country):
-            "country-\(country)"
         case .category(let category):
             "category-\(category)"
         case .watchlist:
@@ -1844,8 +1866,6 @@ private enum ActiveCalendarFilter: Identifiable, Hashable {
             "All events"
         case .currency(let currency):
             currency
-        case .country(let country):
-            CountryDisplay.name(for: country)
         case .category(let category):
             category
         case .watchlist:
@@ -1888,123 +1908,90 @@ private struct CalendarFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let preferences: UserPreferences
+    @Bindable var subscriptionStore: SubscriptionStore
     let availableCurrencies: [String]
-    let availableCountries: [String]
     let availableCategories: [String]
     let clearFilters: () -> Void
+    let showProUpgrade: () -> Void
+
+    @State private var presetName = ""
+    @State private var isShowingPresetNameAlert = false
+    @State private var savedPresetName: String?
+
+    private var hasSavableFilters: Bool {
+        preferences.minimumImpact != .low
+            || !preferences.selectedCurrencyCodes.isEmpty
+            || preferences.selectedCategory != nil
+            || preferences.showOnlyWatchedPairs
+    }
+
+    private var activeFilterCount: Int {
+        [
+            preferences.minimumImpact != .low,
+            !preferences.selectedCurrencyCodes.isEmpty,
+            preferences.selectedCategory != nil,
+            preferences.showOnlyWatchedPairs
+        ].filter { $0 }.count
+    }
+
+    private var currencyOptions: [FilterOption] {
+        [FilterOption(id: "any", title: "Any currency")] + availableCurrencies.map {
+            FilterOption(id: $0, title: $0)
+        }
+    }
+
+    private var categoryOptions: [FilterOption] {
+        [FilterOption(id: "any", title: "Any category")] + availableCategories.map {
+            FilterOption(id: $0, title: EventPresentation.categoryLabel(for: $0))
+        }
+    }
 
     var body: some View {
-        List {
-            Section("Importance") {
-                filterOptionRow(
-                    title: "All events",
-                    isSelected: preferences.minimumImpact == .low
-                ) {
-                    preferences.minimumImpact = .low
-                }
+        ScrollView {
+            FXNewsScreen {
+                VStack(spacing: 14) {
+                    filterSummaryCard
+                    presetsCard
+                    impactCard
+                    pairScopeCard
 
-                filterOptionRow(
-                    title: "Market movers",
-                    isSelected: preferences.minimumImpact == .medium
-                ) {
-                    preferences.minimumImpact = .medium
-                }
-
-                filterOptionRow(
-                    title: "High impact",
-                    isSelected: preferences.minimumImpact == .high
-                ) {
-                    preferences.minimumImpact = .high
-                }
-            }
-
-            if !preferences.watchedPairSymbols.isEmpty {
-                Section("Pairs") {
-                    filterOptionRow(
-                        title: "All pairs",
-                        isSelected: !preferences.showOnlyWatchedPairs
-                    ) {
-                        preferences.showOnlyWatchedPairs = false
-                    }
-
-                    filterOptionRow(
-                        title: "Watchlist only",
-                        isSelected: preferences.showOnlyWatchedPairs
-                    ) {
-                        preferences.showOnlyWatchedPairs = true
-                    }
-                }
-            }
-
-            if !availableCurrencies.isEmpty {
-                Section("Currency") {
-                    filterOptionRow(
-                        title: "Any currency",
-                        isSelected: preferences.selectedCurrencyCode == nil
-                    ) {
-                        preferences.selectedCurrencyCode = nil
-                    }
-
-                    ForEach(availableCurrencies, id: \.self) { currency in
-                        filterOptionRow(
-                            title: currency,
-                            isSelected: preferences.selectedCurrencyCode == currency
-                        ) {
-                            preferences.selectedCurrencyCode = currency
+                    if !availableCurrencies.isEmpty {
+                        optionGridCard(
+                            eyebrow: "Currency",
+                            title: "Filter by currencies",
+                            options: currencyOptions,
+                            selectedIDs: preferences.selectedCurrencyCodes
+                        ) { option in
+                            if option.id == "any" {
+                                preferences.selectedCurrencyCodes = []
+                            } else {
+                                preferences.toggleCurrencyFilter(option.id)
+                            }
                         }
                     }
-                }
-            }
 
-            if !availableCountries.isEmpty {
-                Section("Country") {
-                    filterOptionRow(
-                        title: "Any country",
-                        isSelected: preferences.selectedCountryCode == nil
-                    ) {
-                        preferences.selectedCountryCode = nil
-                    }
-
-                    ForEach(availableCountries, id: \.self) { country in
-                        filterOptionRow(
-                            title: "\(CountryDisplay.flag(for: country)) \(CountryDisplay.name(for: country))",
-                            isSelected: preferences.selectedCountryCode == country
-                        ) {
-                            preferences.selectedCountryCode = country
-                        }
-                    }
-                }
-            }
-
-            if !availableCategories.isEmpty {
-                Section("Category") {
-                    filterOptionRow(
-                        title: "Any category",
-                        isSelected: preferences.selectedCategory == nil
-                    ) {
-                        preferences.selectedCategory = nil
-                    }
-
-                    ForEach(availableCategories, id: \.self) { category in
-                        filterOptionRow(
-                            title: category,
-                            isSelected: preferences.selectedCategory == category
-                        ) {
-                            preferences.selectedCategory = category
+                    if !availableCategories.isEmpty {
+                        optionGridCard(
+                            eyebrow: "Category",
+                            title: "Filter by event type",
+                            options: categoryOptions,
+                            selectedIDs: [preferences.selectedCategory ?? "any"]
+                        ) { option in
+                            preferences.selectedCategory = option.id == "any" ? nil : option.id
                         }
                     }
                 }
             }
         }
-        .scrollContentBackground(.hidden)
         .background(FXNewsPalette.backgroundTop)
         .navigationTitle("Filters")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Reset") {
+                Button("Clear") {
                     clearFilters()
                 }
+                .disabled(!hasSavableFilters)
                 .tint(FXNewsPalette.accent)
             }
 
@@ -2016,27 +2003,381 @@ private struct CalendarFilterSheet: View {
                 .tint(FXNewsPalette.accent)
             }
         }
+        .alert("Save Filter Preset", isPresented: $isShowingPresetNameAlert) {
+            TextField("Preset name", text: $presetName)
+            Button("Save") {
+                if let preset = preferences.saveCurrentCalendarFilterPreset(named: presetName) {
+                    savedPresetName = preset.name
+                }
+                presetName = ""
+            }
+            Button("Cancel", role: .cancel) {
+                presetName = ""
+            }
+        } message: {
+            Text("Save the current calendar filters so you can reapply them later.")
+        }
     }
 
-    private func filterOptionRow(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Text(title)
-                    .font(.body)
-                    .foregroundStyle(FXNewsPalette.text)
+    private var filterSummaryCard: some View {
+        FXNewsCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Current view".uppercased())
+                            .font(.caption.weight(.semibold))
+                            .tracking(1.1)
+                            .foregroundStyle(FXNewsPalette.muted)
 
-                Spacer()
+                        Text(activeFilterCount == 0 ? "All calendar events" : "\(activeFilterCount) active filter\(activeFilterCount == 1 ? "" : "s")")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(FXNewsPalette.text)
+                    }
 
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(FXNewsPalette.accent)
+                    Spacer()
+
+                    Image(systemName: activeFilterCount == 0 ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(activeFilterCount == 0 ? FXNewsPalette.muted : FXNewsPalette.accent)
+                }
+
+                Text(activeFilterCount == 0 ? "Nothing is hidden by filters." : currentFilterSummary)
+                    .font(.subheadline)
+                    .foregroundStyle(FXNewsPalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if hasSavableFilters {
+                    Button {
+                        clearFilters()
+                    } label: {
+                        Label("Clear all filters", systemImage: "xmark.circle.fill")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(FXNewsPalette.accent)
                 }
             }
         }
-        .buttonStyle(.plain)
-        .listRowBackground(FXNewsPalette.surface)
     }
+
+    @ViewBuilder
+    private var presetsCard: some View {
+        if subscriptionStore.hasProAccess {
+            FXNewsCard {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Pro presets".uppercased())
+                                .font(.caption.weight(.semibold))
+                                .tracking(1.1)
+                                .foregroundStyle(FXNewsPalette.muted)
+
+                            Text("Saved filter setups")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(FXNewsPalette.text)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            savedPresetName = nil
+                            presetName = suggestedPresetName
+                            isShowingPresetNameAlert = true
+                        } label: {
+                            Label("Save", systemImage: "plus.circle.fill")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(hasSavableFilters ? FXNewsPalette.accent : FXNewsPalette.muted)
+                        .disabled(!hasSavableFilters)
+                        .accessibilityLabel("Save current filters")
+                    }
+
+                    if hasSavableFilters {
+                        Text("Save this setup: \(currentFilterSummary)")
+                            .font(.caption)
+                            .foregroundStyle(FXNewsPalette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("Choose filters first, then save them as a one-tap preset.")
+                            .font(.caption)
+                            .foregroundStyle(FXNewsPalette.muted)
+                    }
+
+                    if let savedPresetName {
+                        Label("Saved \"\(savedPresetName)\"", systemImage: "checkmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(FXNewsPalette.success)
+                    }
+
+                    if preferences.calendarFilterPresets.isEmpty {
+                        emptyPresetState
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(preferences.calendarFilterPresets) { preset in
+                                presetRow(preset)
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            FXNewsCard {
+                ProLockedRow(
+                    title: "Filter presets are Pro",
+                    subtitle: "Save setups like USD high impact, watchlist events, or session-specific filters.",
+                    action: openProUpgrade
+                )
+            }
+        }
+    }
+
+    private var impactCard: some View {
+        FXNewsCard {
+            VStack(alignment: .leading, spacing: 14) {
+                filterCardHeader(
+                    eyebrow: "Importance",
+                    title: "How much market noise?"
+                )
+
+                HStack(spacing: 8) {
+                    filterChip(
+                        title: "All",
+                        icon: "calendar",
+                        isSelected: preferences.minimumImpact == .low
+                    ) {
+                        preferences.minimumImpact = .low
+                    }
+
+                    filterChip(
+                        title: "Movers",
+                        icon: "chart.line.uptrend.xyaxis",
+                        isSelected: preferences.minimumImpact == .medium
+                    ) {
+                        preferences.minimumImpact = .medium
+                    }
+
+                    filterChip(
+                        title: "High",
+                        icon: "flame.fill",
+                        isSelected: preferences.minimumImpact == .high
+                    ) {
+                        preferences.minimumImpact = .high
+                    }
+                }
+            }
+        }
+    }
+
+    private var pairScopeCard: some View {
+        FXNewsCard {
+            VStack(alignment: .leading, spacing: 14) {
+                filterCardHeader(
+                    eyebrow: "Pairs",
+                    title: "Calendar scope"
+                )
+
+                if preferences.watchedPairSymbols.isEmpty {
+                    Text("Build a watchlist on My Pairs to unlock a focused calendar view.")
+                        .font(.subheadline)
+                        .foregroundStyle(FXNewsPalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    HStack(spacing: 8) {
+                        filterChip(
+                            title: "All pairs",
+                            icon: "rectangle.stack",
+                            isSelected: !preferences.showOnlyWatchedPairs
+                        ) {
+                            preferences.showOnlyWatchedPairs = false
+                        }
+
+                        filterChip(
+                            title: "Watchlist",
+                            icon: "star.fill",
+                            isSelected: preferences.showOnlyWatchedPairs
+                        ) {
+                            preferences.showOnlyWatchedPairs = true
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func optionGridCard(
+        eyebrow: String,
+        title: String,
+        options: [FilterOption],
+        selectedIDs: [String],
+        action: @escaping (FilterOption) -> Void
+    ) -> some View {
+        FXNewsCard {
+            VStack(alignment: .leading, spacing: 14) {
+                filterCardHeader(eyebrow: eyebrow, title: title)
+
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 106), spacing: 8)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(options) { option in
+                        filterChip(
+                            title: option.title,
+                            icon: option.id == "any" ? "asterisk.circle" : nil,
+                            isSelected: option.id == "any" ? selectedIDs.isEmpty || selectedIDs.contains(option.id) : selectedIDs.contains(option.id)
+                        ) {
+                            action(option)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func filterCardHeader(eyebrow: String, title: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(eyebrow.uppercased())
+                .font(.caption.weight(.semibold))
+                .tracking(1.1)
+                .foregroundStyle(FXNewsPalette.muted)
+
+            Text(title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(FXNewsPalette.text)
+        }
+    }
+
+    private func filterChip(title: String, icon: String? = nil, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.caption.weight(.bold))
+                }
+
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.caption.weight(.bold))
+                }
+            }
+            .foregroundStyle(isSelected ? FXNewsPalette.backgroundTop : FXNewsPalette.text)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(isSelected ? FXNewsPalette.accent : FXNewsPalette.surfaceStrong)
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .stroke(isSelected ? FXNewsPalette.accent : FXNewsPalette.stroke, lineWidth: 1)
+                    }
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var emptyPresetState: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "bookmark")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FXNewsPalette.muted)
+
+            Text("No presets saved yet.")
+                .font(.subheadline)
+                .foregroundStyle(FXNewsPalette.muted)
+
+            Spacer()
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(FXNewsPalette.surfaceStrong)
+        )
+    }
+
+    private var currentFilterSummary: String {
+        CalendarFilterPreset(
+            name: "Current filters",
+            minimumImpact: preferences.minimumImpact,
+            selectedCurrencyCodes: preferences.selectedCurrencyCodes,
+            selectedCountryCode: nil,
+            selectedCategory: preferences.selectedCategory,
+            showOnlyWatchedPairs: preferences.showOnlyWatchedPairs
+        ).summary
+    }
+
+    private var suggestedPresetName: String {
+        if preferences.showOnlyWatchedPairs {
+            return "Watchlist"
+        }
+
+        if let currency = preferences.selectedCurrencyCodes.first {
+            return preferences.selectedCurrencyCodes.count == 1 ? "\(currency) filters" : "Currency basket"
+        }
+
+        if preferences.minimumImpact == .high {
+            return "High impact"
+        }
+
+        if preferences.minimumImpact == .medium {
+            return "Market movers"
+        }
+
+        return "Calendar preset"
+    }
+
+    private func openProUpgrade() {
+        dismiss()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            showProUpgrade()
+        }
+    }
+
+    private func presetRow(_ preset: CalendarFilterPreset) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                preferences.applyCalendarFilterPreset(preset)
+            } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(preset.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FXNewsPalette.text)
+                    Text(preset.summary)
+                        .font(.caption)
+                        .foregroundStyle(FXNewsPalette.muted)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+
+            Button(role: .destructive) {
+                preferences.deleteCalendarFilterPreset(preset)
+            } label: {
+                Image(systemName: "trash")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .buttonStyle(.borderless)
+            .tint(FXNewsPalette.muted)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(FXNewsPalette.surfaceStrong)
+        )
+    }
+}
+
+private struct FilterOption: Identifiable {
+    let id: String
+    let title: String
 }
 
 private struct DaySection: Identifiable {
@@ -2091,7 +2432,7 @@ enum CalendarNotificationStore {
         })
     }
 
-    static func syncDefaultNotifications(for events: [EconomicEvent], preferences: UserPreferences) async {
+    static func syncDefaultNotifications(for events: [EconomicEvent], preferences: UserPreferences, hasProAccess: Bool) async {
         guard await NotificationAuthorizationStore.canScheduleNotificationsWithoutPrompt() else {
             return
         }
@@ -2103,7 +2444,11 @@ enum CalendarNotificationStore {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: existingDefaultIdentifiers)
 
         let upcomingSchedules = events.compactMap { event -> EventNotificationSchedule? in
-            guard let leadTime = defaultLeadTime(for: event.impactLevel, preferences: preferences), leadTime > 0 else {
+            guard let leadTime = defaultLeadTime(
+                for: event.impactLevel,
+                preferences: preferences,
+                hasProAccess: hasProAccess
+            ), leadTime > 0 else {
                 return nil
             }
 
@@ -2239,14 +2584,14 @@ enum CalendarNotificationStore {
         .joined(separator: " ")
     }
 
-    private static func defaultLeadTime(for impactLevel: ImpactLevel, preferences: UserPreferences) -> Int? {
+    private static func defaultLeadTime(for impactLevel: ImpactLevel, preferences: UserPreferences, hasProAccess: Bool) -> Int? {
         switch impactLevel {
         case .high:
             preferences.highImpactNotificationLeadTimeMinutes
         case .medium:
-            preferences.mediumImpactNotificationLeadTimeMinutes
+            hasProAccess ? preferences.mediumImpactNotificationLeadTimeMinutes : nil
         case .low:
-            preferences.lowImpactNotificationLeadTimeMinutes
+            hasProAccess ? preferences.lowImpactNotificationLeadTimeMinutes : nil
         }
     }
 

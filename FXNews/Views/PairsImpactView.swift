@@ -6,13 +6,44 @@ struct PairsImpactView: View {
 
     let viewModel: CalendarViewModel
     @Bindable var preferences: UserPreferences
+    @Bindable var subscriptionStore: SubscriptionStore
 
     @State private var isShowingWatchlistEditor = false
+    @State private var isShowingProUpgrade = false
 
     private let pairCategories = PairCatalogCategory.allCases
+    private let previewPairSymbols = ["EURUSD", "GBPUSD", "USDJPY"]
 
     private var selectedPairs: [String] {
         preferences.watchedPairSymbols.sorted()
+    }
+
+    private var previewPairSummaries: [PairDashboardSummary] {
+        previewPairSymbols
+            .map { symbol in
+                PairDashboardSummary(
+                    symbol: symbol,
+                    events: viewModel.events(forPair: symbol).sorted { $0.timestamp < $1.timestamp }
+                )
+            }
+            .sorted { lhs, rhs in
+                PairDashboardSummary.priorityOrder(
+                    lhs: lhs,
+                    rhs: rhs,
+                    currencyPairCounts: previewCurrencyPairCounts
+                )
+            }
+    }
+
+    private var previewCurrencyPairCounts: [String: Int] {
+        Dictionary(
+            grouping: previewPairSymbols.flatMap { PairDashboardSummary.currencyCodes(in: $0) },
+            by: { $0 }
+        ).mapValues(\.count)
+    }
+
+    private var previewEventCount: Int {
+        previewPairSummaries.reduce(0) { $0 + $1.events.count }
     }
 
     private var watchedCurrencyPairCounts: [String: Int] {
@@ -123,6 +154,10 @@ struct PairsImpactView: View {
     }
 
     private var bodySubtitle: String {
+        if !subscriptionStore.hasProAccess {
+            return "Preview how Pro turns the calendar into a pair-focused workflow before building your own watchlist."
+        }
+
         if selectedPairs.isEmpty {
             return "Track the pairs you trade and see which setups deserve attention this week."
         }
@@ -144,10 +179,14 @@ struct PairsImpactView: View {
                         subtitle: bodySubtitle
                     )
 
-                    weeklySummaryCard
-                    priorityBoardSection
-                    riskConcentrationSection
-                    watchlistSection
+                    if subscriptionStore.hasProAccess {
+                        weeklySummaryCard
+                        priorityBoardSection
+                        riskConcentrationSection
+                        watchlistSection
+                    } else {
+                        proPreviewContent
+                    }
                 }
             }
         }
@@ -176,7 +215,7 @@ struct PairsImpactView: View {
 
             ToolbarItem(placement: .topBarTrailing) {
                 Button(manageWatchlistButtonTitle) {
-                    isShowingWatchlistEditor = true
+                    openWatchlistEditor()
                 }
                 .tint(FXNewsPalette.accent)
             }
@@ -188,6 +227,11 @@ struct PairsImpactView: View {
         .refreshable {
             await viewModel.refresh()
             FXNewsHaptics.success()
+        }
+        .sheet(isPresented: $isShowingProUpgrade) {
+            NavigationStack {
+                ProUpgradeView(subscriptionStore: subscriptionStore)
+            }
         }
         .sheet(isPresented: $isShowingWatchlistEditor) {
             NavigationStack {
@@ -204,6 +248,92 @@ struct PairsImpactView: View {
         }
         .animation(.easeInOut(duration: 0.18), value: selectedPairs)
         .animation(.easeInOut(duration: 0.18), value: watchedPairSummaries.map(\.id))
+    }
+
+    private var proPreviewContent: some View {
+        VStack(alignment: .leading, spacing: FXNewsLayout.sectionSpacing) {
+            ProLockedRow(
+                title: "Advanced pair impact is Pro",
+                subtitle: "Your watchlist and calendar filter stay free. Pro unlocks priority ranking and shared currency risk.",
+                action: { isShowingProUpgrade = true }
+            )
+
+            watchlistSection
+
+            FXNewsCard {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("Sample Pair Desk")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundStyle(FXNewsPalette.text)
+
+                        ProBadge()
+                    }
+
+                    Text("A preview using EURUSD, GBPUSD, and USDJPY. Your free watchlist powers the calendar filter; Pro turns it into priority ranking, alerts, and shared-risk analysis.")
+                        .font(.subheadline)
+                        .foregroundStyle(FXNewsPalette.muted)
+
+                    PairExposureOverviewBar(
+                        summaries: previewPairSummaries,
+                        currencyPairCounts: previewCurrencyPairCounts
+                    )
+
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: FXNewsLayout.compactItemSpacing) {
+                            FXNewsMetricCard(title: "Sample pairs", value: "\(previewPairSymbols.count)")
+                            FXNewsMetricCard(title: "Mapped events", value: "\(previewEventCount)")
+                        }
+
+                        VStack(spacing: FXNewsLayout.compactItemSpacing) {
+                            FXNewsMetricCard(title: "Sample pairs", value: "\(previewPairSymbols.count)")
+                            FXNewsMetricCard(title: "Mapped events", value: "\(previewEventCount)")
+                        }
+                    }
+
+                    Button {
+                        isShowingProUpgrade = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "lock.open.fill")
+                                .font(.subheadline.weight(.bold))
+                            Text("Unlock Pair Impact")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .foregroundStyle(Color.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(FXNewsPalette.accent)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            previewPriorityBoardSection
+        }
+    }
+
+    private var previewPriorityBoardSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader(
+                title: "Priority Preview",
+                subtitle: "Sample ranking from this week's calendar feed."
+            )
+
+            LazyVStack(spacing: 12) {
+                ForEach(Array(previewPairSummaries.enumerated()), id: \.element.id) { index, summary in
+                    PairPriorityCard(
+                        rank: index + 1,
+                        summary: summary,
+                        preferences: preferences,
+                        currencyPairCounts: previewCurrencyPairCounts
+                    )
+                }
+            }
+        }
     }
 
     private var weeklySummaryCard: some View {
@@ -245,7 +375,7 @@ struct PairsImpactView: View {
                             .foregroundStyle(FXNewsPalette.muted)
 
                         Button("Build watchlist") {
-                            isShowingWatchlistEditor = true
+                            openWatchlistEditor()
                         }
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.white)
@@ -337,7 +467,7 @@ struct PairsImpactView: View {
                 Spacer()
 
                 Button(selectedPairs.isEmpty ? "Add pairs" : "Manage") {
-                    isShowingWatchlistEditor = true
+                    openWatchlistEditor()
                 }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.white)
@@ -376,7 +506,11 @@ struct PairsImpactView: View {
     }
 
     private var manageWatchlistButtonTitle: String {
-        horizontalSizeClass == .regular ? "Manage Watchlists" : "Manage"
+        horizontalSizeClass == .regular ? "Manage Watchlist" : "Manage"
+    }
+
+    private func openWatchlistEditor() {
+        isShowingWatchlistEditor = true
     }
 
     private func sectionHeader<Accessory: View>(
@@ -767,7 +901,7 @@ private struct WatchlistEditorView: View {
                     FXNewsSectionHeader(
                         eyebrow: "Watchlist",
                         title: "Manage Pairs",
-                        subtitle: "Choose the instruments that should shape your calendar, catalysts, and notifications."
+                        subtitle: "Choose the instruments that should shape your calendar filter and pair workflow."
                     )
 
                     FXNewsCard {
@@ -2084,7 +2218,8 @@ enum PairCatalogCategory: String, CaseIterable, Identifiable {
     return NavigationStack {
         PairsImpactView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
-            preferences: preferences
+            preferences: preferences,
+            subscriptionStore: SubscriptionStore()
         )
     }
 }
@@ -2096,7 +2231,8 @@ enum PairCatalogCategory: String, CaseIterable, Identifiable {
     return NavigationStack {
         PairsImpactView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
-            preferences: preferences
+            preferences: preferences,
+            subscriptionStore: SubscriptionStore()
         )
     }
     .frame(width: 834, height: 1194)

@@ -26,7 +26,7 @@ struct UserPreferencesTests {
         let defaults = makeDefaults()
         let preferences = UserPreferences(defaults: defaults)
         preferences.minimumImpact = .high
-        preferences.selectedCurrencyCode = "USD"
+        preferences.selectedCurrencyCodes = ["EUR", "USD"]
         preferences.selectedCountryCode = "US"
         preferences.selectedCategory = "labor"
         preferences.showOnlyWatchedPairs = true
@@ -42,7 +42,8 @@ struct UserPreferencesTests {
         let restored = UserPreferences(defaults: defaults)
 
         #expect(restored.minimumImpact == .high)
-        #expect(restored.selectedCurrencyCode == "USD")
+        #expect(restored.selectedCurrencyCodes == ["EUR", "USD"])
+        #expect(restored.selectedCurrencyCode == "EUR")
         #expect(restored.selectedCountryCode == "US")
         #expect(restored.selectedCategory == "labor")
         #expect(restored.showOnlyWatchedPairs)
@@ -54,6 +55,67 @@ struct UserPreferencesTests {
         #expect(restored.londonSessionNotificationsEnabled)
         #expect(restored.londonSessionOpenNotificationsEnabled)
         #expect(restored.hasCompletedOnboarding)
+    }
+
+    @Test
+    func calendarFilterPresetsPersistApplyAndDelete() throws {
+        let defaults = makeDefaults()
+        let preferences = UserPreferences(defaults: defaults)
+        preferences.minimumImpact = .high
+        preferences.selectedCurrencyCodes = ["EUR", "USD"]
+        preferences.selectedCountryCode = "US"
+        preferences.selectedCategory = "Labor"
+        preferences.showOnlyWatchedPairs = true
+
+        preferences.saveCurrentCalendarFilterPreset(named: "Currency risk")
+
+        let restored = UserPreferences(defaults: defaults)
+        let preset = try #require(restored.calendarFilterPresets.first)
+        #expect(restored.calendarFilterPresets.count == 1)
+        #expect(preset.name == "Currency risk")
+        #expect(preset.summary.contains("High impact"))
+        #expect(preset.summary.contains("EUR"))
+        #expect(preset.summary.contains("USD"))
+        #expect(preset.summary.contains("United States"))
+        #expect(preset.summary.contains("Labor"))
+        #expect(preset.summary.contains("Watchlist"))
+
+        restored.minimumImpact = .low
+        restored.selectedCurrencyCodes = []
+        restored.selectedCountryCode = nil
+        restored.selectedCategory = nil
+        restored.showOnlyWatchedPairs = false
+        restored.applyCalendarFilterPreset(preset)
+
+        #expect(restored.minimumImpact == .high)
+        #expect(restored.selectedCurrencyCodes == ["EUR", "USD"])
+        #expect(restored.selectedCountryCode == "US")
+        #expect(restored.selectedCategory == "Labor")
+        #expect(restored.showOnlyWatchedPairs)
+
+        restored.deleteCalendarFilterPreset(preset)
+        #expect(restored.calendarFilterPresets.isEmpty)
+    }
+
+    @Test
+    func calendarFilterPresetWithSameNameReplacesCurrencySelection() throws {
+        let defaults = makeDefaults()
+        let preferences = UserPreferences(defaults: defaults)
+        preferences.selectedCurrencyCodes = ["USD"]
+        preferences.saveCurrentCalendarFilterPreset(named: "Major currency")
+
+        preferences.selectedCurrencyCodes = ["EUR"]
+        preferences.saveCurrentCalendarFilterPreset(named: "Major currency")
+
+        let restored = UserPreferences(defaults: defaults)
+        let preset = try #require(restored.calendarFilterPresets.first)
+        #expect(restored.calendarFilterPresets.count == 1)
+        #expect(preset.name == "Major currency")
+        #expect(preset.selectedCurrencyCodes == ["EUR"])
+
+        restored.selectedCurrencyCodes = ["USD"]
+        restored.applyCalendarFilterPreset(preset)
+        #expect(restored.selectedCurrencyCodes == ["EUR"])
     }
 
     @Test
@@ -111,7 +173,7 @@ struct UserPreferencesTests {
     func resetRestoresLaunchSafeDefaultsWithoutRepeatingOnboarding() {
         let preferences = UserPreferences(defaults: makeDefaults())
         preferences.minimumImpact = .high
-        preferences.selectedCurrencyCode = "USD"
+        preferences.selectedCurrencyCodes = ["EUR", "USD"]
         preferences.showOnlyWatchedPairs = true
         preferences.use24HourTime = true
         preferences.useUTC = true
@@ -132,6 +194,7 @@ struct UserPreferencesTests {
         preferences.reset()
 
         #expect(preferences.minimumImpact == .low)
+        #expect(preferences.selectedCurrencyCodes.isEmpty)
         #expect(preferences.selectedCurrencyCode == nil)
         #expect(!preferences.showOnlyWatchedPairs)
         #expect(!preferences.use24HourTime)

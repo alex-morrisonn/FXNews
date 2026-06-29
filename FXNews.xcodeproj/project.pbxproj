@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		1E8763C12F94D086001B4284 /* NotificationAuthorizationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8763BF2F94D086001B4284 /* NotificationAuthorizationStore.swift */; };
+		1ECC500B2FF25D2D00FD05B5 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1ECC500A2FF25D2D00FD05B5 /* StoreKit.framework */; };
+		1ECC500D2FF25E2000FD05B5 /* FXNewsLocal.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 1ECC500C2FF25E2000FD05B5 /* FXNewsLocal.storekit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -24,6 +26,8 @@
 		1E74B2772F99BA76008AF26C /* FXNewsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FXNewsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1E8763BF2F94D086001B4284 /* NotificationAuthorizationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationAuthorizationStore.swift; sourceTree = "<group>"; };
 		1EC75FB82F90E1C2003B6F09 /* FXNews.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FXNews.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1ECC500A2FF25D2D00FD05B5 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		1ECC500C2FF25E2000FD05B5 /* FXNewsLocal.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = FXNewsLocal.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -51,6 +55,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1ECC500B2FF25D2D00FD05B5 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -60,6 +65,7 @@
 		1EC75FAF2F90E1C2003B6F09 = {
 			isa = PBXGroup;
 			children = (
+				1ECC500C2FF25E2000FD05B5 /* FXNewsLocal.storekit */,
 				1EC75FBA2F90E1C2003B6F09 /* FXNews */,
 				1E74B2782F99BA76008AF26C /* FXNewsTests */,
 				1EC75FB92F90E1C2003B6F09 /* Products */,
@@ -69,6 +75,7 @@
 				1EC75FC92F90E296003B6F09 /* ViewModels */,
 				1EC75FCA2F90E296003B6F09 /* Utilities */,
 				1EC75FF22F9217C8003B6F09 /* SampleData */,
+				1ECC50092FF25D2D00FD05B5 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -122,6 +129,14 @@
 			children = (
 			);
 			path = SampleData;
+			sourceTree = "<group>";
+		};
+		1ECC50092FF25D2D00FD05B5 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1ECC500A2FF25D2D00FD05B5 /* StoreKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -223,6 +238,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1ECC500D2FF25E2000FD05B5 /* FXNewsLocal.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -426,7 +442,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 9282G9F23C;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -443,7 +459,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.2;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alexmorrison.FXNews;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -462,7 +478,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 9282G9F23C;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -479,7 +495,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.2;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alexmorrison.FXNews;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

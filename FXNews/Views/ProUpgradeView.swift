@@ -165,7 +165,7 @@ struct ProUpgradeView: View {
                         .foregroundStyle(FXNewsPalette.accent)
                 }
 
-                LazyVGrid(columns: featureColumns, alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 14) {
                     ForEach(ProFeature.allCases) { feature in
                         proFeatureTile(feature)
                     }
@@ -217,10 +217,6 @@ struct ProUpgradeView: View {
                 .padding(.top, 2)
             }
         }
-    }
-
-    private var featureColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 220), spacing: 12, alignment: .top)]
     }
 
     private var activeSubscriptionActions: some View {
@@ -330,6 +326,7 @@ struct ProUpgradeView: View {
             }
         }
         .padding(.vertical, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func subscriptionButton(for product: Product) -> some View {

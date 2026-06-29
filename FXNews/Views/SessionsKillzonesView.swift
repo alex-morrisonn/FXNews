@@ -4,8 +4,10 @@ import SwiftUI
 struct SessionsKillzonesView: View {
     let viewModel: CalendarViewModel
     @Bindable var preferences: UserPreferences
+    @Bindable var subscriptionStore: SubscriptionStore
 
     @State private var notificationMessage: String?
+    @State private var isShowingProUpgrade = false
 
     private let notificationDefinitions = MarketBoardDefinition.allCases
 
@@ -37,6 +39,11 @@ struct SessionsKillzonesView: View {
                     .foregroundStyle(FXNewsPalette.text)
             }
         }
+        .sheet(isPresented: $isShowingProUpgrade) {
+            NavigationStack {
+                ProUpgradeView(subscriptionStore: subscriptionStore)
+            }
+        }
         .alert("Session Notification", isPresented: notificationAlertBinding) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -65,6 +72,14 @@ struct SessionsKillzonesView: View {
                 Text("Choose a 15-minute warning, an at-open alert, or both for each session.")
                     .font(.subheadline)
                     .foregroundStyle(FXNewsPalette.muted)
+
+                if !subscriptionStore.hasProAccess {
+                    ProLockedRow(
+                        title: "Session reminders are Pro",
+                        subtitle: "Unlock automated 15-minute and at-open alerts for each major trading session.",
+                        action: { isShowingProUpgrade = true }
+                    )
+                }
 
                 ForEach(notificationDefinitions) { definition in
                     VStack(alignment: .leading, spacing: 10) {
@@ -122,6 +137,12 @@ struct SessionsKillzonesView: View {
                 sessionNotificationEnabled(for: definition, timing: timing)
             },
             set: { isEnabled in
+                if isEnabled, !subscriptionStore.hasProAccess {
+                    isShowingProUpgrade = true
+                    FXNewsHaptics.warning()
+                    return
+                }
+
                 setSessionNotification(definition, timing: timing, enabled: isEnabled)
 
                 Task {
@@ -207,7 +228,8 @@ struct SessionsKillzonesView: View {
     NavigationStack {
         SessionsKillzonesView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
-            preferences: UserPreferences()
+            preferences: UserPreferences(),
+            subscriptionStore: SubscriptionStore()
         )
     }
 }
@@ -216,7 +238,8 @@ struct SessionsKillzonesView: View {
     NavigationStack {
         SessionsKillzonesView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
-            preferences: UserPreferences()
+            preferences: UserPreferences(),
+            subscriptionStore: SubscriptionStore()
         )
     }
 }
@@ -940,7 +963,8 @@ private struct SessionState: Identifiable {
     NavigationStack {
         SessionsKillzonesView(
             viewModel: CalendarViewModel(service: MockCalendarService()),
-            preferences: UserPreferences()
+            preferences: UserPreferences(),
+            subscriptionStore: SubscriptionStore()
         )
     }
 }

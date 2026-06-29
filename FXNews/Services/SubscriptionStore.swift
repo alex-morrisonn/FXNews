@@ -10,10 +10,26 @@ final class SubscriptionStore {
     private(set) var isLoadingProducts = false
     private(set) var purchaseMessage: String?
 
+    #if DEBUG
+    var debugOverridesProAccess: Bool {
+        didSet { UserDefaults.standard.set(debugOverridesProAccess, forKey: Self.debugOverridesProAccessKey) }
+    }
+    #endif
+
+    #if DEBUG
+    private static let debugOverridesProAccessKey = "debug.subscription.overridesProAccess"
+    #endif
+
     private var updatesTask: Task<Void, Never>?
 
     var hasProAccess: Bool {
-        !purchasedProductIDs.isDisjoint(with: Set(SubscriptionProduct.identifiers))
+        #if DEBUG
+        if debugOverridesProAccess {
+            return true
+        }
+        #endif
+
+        return !purchasedProductIDs.isDisjoint(with: Set(SubscriptionProduct.identifiers))
     }
 
     var sortedProducts: [Product] {
@@ -25,11 +41,10 @@ final class SubscriptionStore {
     }
 
     init() {
+        #if DEBUG
+        self.debugOverridesProAccess = UserDefaults.standard.bool(forKey: Self.debugOverridesProAccessKey)
+        #endif
         updatesTask = listenForTransactions()
-    }
-
-    deinit {
-        updatesTask?.cancel()
     }
 
     func load() async {
