@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		1E8763C12F94D086001B4284 /* NotificationAuthorizationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8763BF2F94D086001B4284 /* NotificationAuthorizationStore.swift */; };
 		1ECC500B2FF25D2D00FD05B5 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1ECC500A2FF25D2D00FD05B5 /* StoreKit.framework */; };
-		1ECC500D2FF25E2000FD05B5 /* FXNewsLocal.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 1ECC500C2FF25E2000FD05B5 /* FXNewsLocal.storekit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -238,7 +237,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1ECC500D2FF25E2000FD05B5 /* FXNewsLocal.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -442,7 +440,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 9282G9F23C;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -478,7 +476,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 9282G9F23C;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
