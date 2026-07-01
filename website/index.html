@@ -113,12 +113,8 @@
                             <dt>Previous</dt>
                             <dd id="calendar-event-previous">0.2%</dd>
                         </div>
-                        <div>
-                            <dt>Actual</dt>
-                            <dd id="calendar-event-forecast">0.4%</dd>
-                        </div>
                     </dl>
-                    <p class="event-note" id="calendar-event-note" hidden>No forecast or result values are released for this event.</p>
+                    <p class="event-note" id="calendar-event-note" hidden>No forecast or previous values are provided for this event.</p>
                     <div class="pair-row" id="calendar-event-pairs"></div>
                 </div>
             </div>
@@ -298,7 +294,7 @@
             document.getElementById("calendar-event-impact").textContent = "*".repeat(impactStars);
             document.getElementById("calendar-event-impact").setAttribute("aria-label", `${impactStars} star impact`);
 
-            const hasEventValues = [calendarEvent.expected, calendarEvent.previous, calendarEvent.forecast]
+            const hasEventValues = [calendarEvent.expected, calendarEvent.previous]
                 .some((value) => value && value !== "-");
             document.getElementById("calendar-event-values").hidden = !hasEventValues;
             document.getElementById("calendar-event-note").hidden = hasEventValues;
@@ -306,7 +302,6 @@
             if (hasEventValues) {
                 document.getElementById("calendar-event-expected").textContent = calendarEvent.expected;
                 document.getElementById("calendar-event-previous").textContent = calendarEvent.previous;
-                document.getElementById("calendar-event-forecast").textContent = calendarEvent.forecast;
             }
 
             replaceChildrenWithTextSpans(document.getElementById("calendar-event-pairs"), calendarEvent.pairs);
@@ -564,7 +559,6 @@
                     impactStars: impactStars(nextMarketEvent.impact),
                     expected: nextMarketEvent.forecast ?? "-",
                     previous: nextMarketEvent.previous ?? "-",
-                    forecast: nextMarketEvent.actual ?? "-",
                     pairs: nextMarketEvent.relatedPairs.slice(0, 3)
                 } : fallbackBrief.calendarEvent
             };
