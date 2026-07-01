@@ -69,7 +69,7 @@
                 </article>
 
                 <article class="brief-card">
-                    <p class="panel-label">High Impact Events</p>
+                    <p class="panel-label">Today's Calendar</p>
                     <ol class="event-list" id="brief-events"></ol>
                 </article>
 
@@ -104,7 +104,7 @@
                         <strong id="calendar-event-title">Core CPI</strong>
                     </div>
                     <div class="impact-stars" id="calendar-event-impact" aria-label="Five star impact">*****</div>
-                    <dl class="forecast-grid">
+                    <dl class="forecast-grid" id="calendar-event-values">
                         <div>
                             <dt>Forecast</dt>
                             <dd id="calendar-event-expected">0.3%</dd>
@@ -118,6 +118,7 @@
                             <dd id="calendar-event-forecast">0.4%</dd>
                         </div>
                     </dl>
+                    <p class="event-note" id="calendar-event-note" hidden>No forecast or result values are released for this event.</p>
                     <div class="pair-row" id="calendar-event-pairs"></div>
                 </div>
             </div>
@@ -296,9 +297,18 @@
             document.getElementById("calendar-event-title").textContent = calendarEvent.title;
             document.getElementById("calendar-event-impact").textContent = "*".repeat(impactStars);
             document.getElementById("calendar-event-impact").setAttribute("aria-label", `${impactStars} star impact`);
-            document.getElementById("calendar-event-expected").textContent = calendarEvent.expected;
-            document.getElementById("calendar-event-previous").textContent = calendarEvent.previous;
-            document.getElementById("calendar-event-forecast").textContent = calendarEvent.forecast;
+
+            const hasEventValues = [calendarEvent.expected, calendarEvent.previous, calendarEvent.forecast]
+                .some((value) => value && value !== "-");
+            document.getElementById("calendar-event-values").hidden = !hasEventValues;
+            document.getElementById("calendar-event-note").hidden = hasEventValues;
+
+            if (hasEventValues) {
+                document.getElementById("calendar-event-expected").textContent = calendarEvent.expected;
+                document.getElementById("calendar-event-previous").textContent = calendarEvent.previous;
+                document.getElementById("calendar-event-forecast").textContent = calendarEvent.forecast;
+            }
+
             replaceChildrenWithTextSpans(document.getElementById("calendar-event-pairs"), calendarEvent.pairs);
         }
 
@@ -421,13 +431,16 @@
             const currency = (event.currency ?? event.country ?? "").toUpperCase();
             const country = (event.country ?? currency.slice(0, 2)).toUpperCase();
             const relatedPairs = Array.isArray(event.relatedPairs) ? event.relatedPairs.map(formatPair) : [];
+            const title = event.title;
+            const impact = String(event.impact ?? "low").toLowerCase();
 
             return {
-                title: event.title,
+                title,
                 country,
                 currency,
                 timestamp,
-                impact: String(event.impact ?? "low").toLowerCase(),
+                impact,
+                isHoliday: impact === "holiday" || /holiday/i.test(title),
                 forecast: event.forecast,
                 previous: event.previous,
                 actual: event.actual,
@@ -449,18 +462,29 @@
                 .map(([pair]) => pair);
         }
 
-        function sentimentForEvents(events, upcomingEvents, now) {
+        function holidaySummary(holidays) {
+            if (holidays.length === 0) {
+                return "";
+            }
+
+            const currencies = Array.from(new Set(holidays.map((event) => event.currency))).sort();
+            const formatter = new Intl.ListFormat(undefined, { style: "long", type: "conjunction" });
+            return `${formatter.format(currencies)} bank holiday may reduce liquidity in related pairs today.`;
+        }
+
+        function sentimentForEvents(events, upcomingEvents, now, holidays) {
             const highImpactSoon = upcomingEvents.some((event) =>
                 event.impact === "high" && event.timestamp - now <= 6 * 60 * 60 * 1000
             );
             const highImpactToday = events.filter((event) => event.impact === "high").length;
             const mediumImpactToday = events.filter((event) => event.impact === "medium").length;
+            const holidayNote = holidaySummary(holidays);
 
             if (highImpactSoon) {
                 return {
                     status: "cautious",
                     label: "Event Risk",
-                    summary: "High-impact releases are close, so major pairs may stay headline-sensitive around the data window."
+                    summary: holidayNote || "High-impact releases are close, so major pairs may stay headline-sensitive around the data window."
                 };
             }
 
@@ -468,14 +492,14 @@
                 return {
                     status: "neutral",
                     label: "Active",
-                    summary: "The calendar has enough scheduled catalysts to keep traders focused on event timing and affected pairs."
+                    summary: holidayNote || "The calendar has enough scheduled catalysts to keep traders focused on event timing and affected pairs."
                 };
             }
 
             return {
                 status: "neutral",
-                label: "Neutral",
-                summary: "The calendar is lighter, so session flow may matter more than scheduled news until the next major release."
+                label: holidayNote ? "Holiday Flow" : "Neutral",
+                summary: holidayNote || "The calendar is lighter, so session flow may matter more than scheduled news until the next major release."
             };
         }
 
@@ -486,32 +510,42 @@
                 .filter((event) => event.title && !Number.isNaN(event.timestamp.getTime()))
                 .sort((a, b) => a.timestamp - b.timestamp);
             const todayEvents = events.filter((event) => isSameLocalDay(event.timestamp, now));
+            const todayHolidays = todayEvents.filter((event) => event.isHoliday);
+            const todayMarketEvents = todayEvents.filter((event) => !event.isHoliday);
             const upcomingEvents = events.filter((event) => event.timestamp >= now);
-            const displayedEvents = todayEvents.filter((event) => event.impact === "high").length > 0
-                ? todayEvents.filter((event) => event.impact === "high")
-                : todayEvents.filter((event) => event.impact === "medium");
-            const highImpactEvents = (displayedEvents.length > 0 ? displayedEvents : upcomingEvents)
-                .slice(0, 3)
+            const upcomingMarketEvents = upcomingEvents.filter((event) => !event.isHoliday);
+            const prioritizedTodayEvents = [
+                ...todayMarketEvents.filter((event) => event.impact === "high"),
+                ...todayMarketEvents.filter((event) => event.impact === "medium"),
+                ...todayMarketEvents.filter((event) => event.impact === "low")
+            ];
+            const holidayItems = todayHolidays.map((event) => ({
+                time: "Holiday",
+                label: `${event.currency} ${event.title}`
+            }));
+            const marketItems = (prioritizedTodayEvents.length > 0 ? prioritizedTodayEvents : upcomingMarketEvents)
                 .map((event) => ({
                     time: formatEventTime(event.timestamp),
                     label: `${event.currency} ${event.title}`
                 }));
-            const nextMarketEvent = upcomingEvents.find((event) => event.impact === "high")
-                ?? upcomingEvents.find((event) => event.impact === "medium")
-                ?? upcomingEvents[0]
+            const highImpactEvents = [...holidayItems, ...marketItems].slice(0, 3);
+            const nextMarketEvent = upcomingMarketEvents.find((event) => event.impact === "high")
+                ?? upcomingMarketEvents.find((event) => event.impact === "medium")
+                ?? upcomingMarketEvents[0]
                 ?? events[events.length - 1];
-            const volatilityEvents = todayEvents.filter((event) => ["high", "medium"].includes(event.impact));
-            const volatilityPairs = topVolatilityPairs(volatilityEvents.length > 0 ? volatilityEvents : upcomingEvents);
+            const volatilityEvents = todayMarketEvents.filter((event) => ["high", "medium"].includes(event.impact));
+            const volatilityPairs = topVolatilityPairs(volatilityEvents.length > 0 ? volatilityEvents : upcomingMarketEvents);
             const fallbackPairs = nextMarketEvent?.relatedPairs.slice(0, 3) ?? [];
+            const holidayNote = holidaySummary(todayHolidays);
 
             return {
-                marketSentiment: sentimentForEvents(todayEvents, upcomingEvents, now),
+                marketSentiment: sentimentForEvents(todayMarketEvents, upcomingMarketEvents, now, todayHolidays),
                 highImpactEvents: highImpactEvents.length > 0 ? highImpactEvents : fallbackBrief.highImpactEvents,
                 volatility: {
                     pairs: volatilityPairs.length > 0 ? volatilityPairs : fallbackPairs,
-                    summary: volatilityPairs.length > 0
+                    summary: holidayNote || (volatilityPairs.length > 0
                         ? "Pairs with the most exposure to today's scheduled releases are likely to see the cleanest event-driven movement."
-                        : "The next listed catalyst is driving the main pair watchlist."
+                        : "The next listed catalyst is driving the main pair watchlist.")
                 },
                 session: {
                     summary: "Watch the active session and overlap windows alongside scheduled releases for the highest liquidity conditions."

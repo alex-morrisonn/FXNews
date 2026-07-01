@@ -444,6 +444,16 @@ dt {
     background: var(--surface-soft);
 }
 
+.event-note {
+    max-width: 620px;
+    margin: 18px 0 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface-soft);
+    color: var(--muted);
+}
+
 dd {
     margin: 4px 0 0;
     font-size: 1.25rem;
