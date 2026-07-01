@@ -1,0 +1,56 @@
+{
+    "marketSentiment": {
+        "status": "neutral",
+        "label": "Neutral",
+        "summary": "Major pairs are waiting on US inflation data before the next clear directional move."
+    },
+    "highImpactEvents": [
+        {
+            "time": "08:30",
+            "label": "USD CPI"
+        },
+        {
+            "time": "10:00",
+            "label": "CAD GDP"
+        },
+        {
+            "time": "14:00",
+            "label": "FOMC Minutes"
+        }
+    ],
+    "volatility": {
+        "pairs": [
+            "GBP/USD",
+            "EUR/USD"
+        ],
+        "summary": "Pairs with USD exposure are likely to see the cleanest reaction around data releases."
+    },
+    "session": {
+        "summary": "Watch the London open and London/New York overlap for the highest liquidity window."
+    },
+    "nextHighImpactEvent": {
+        "country": "US",
+        "title": "Core CPI",
+        "timeUntil": "2h 17m",
+        "pairs": [
+            "EUR/USD",
+            "GBP/USD",
+            "USD/JPY"
+        ]
+    },
+    "calendarEvent": {
+        "time": "08:30",
+        "timeLabel": "Local time",
+        "country": "US",
+        "title": "Core CPI",
+        "impactStars": 5,
+        "expected": "0.3%",
+        "previous": "0.2%",
+        "forecast": "0.4%",
+        "pairs": [
+            "EUR/USD",
+            "GBP/USD",
+            "USD/JPY"
+        ]
+    }
+}

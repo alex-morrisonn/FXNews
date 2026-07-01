@@ -3,102 +3,606 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>FXNews</title>
+    <meta name="description" content="FXNews is a daily forex news dashboard for economic events, market sessions, affected pairs, and trader reminders.">
+    <title>FXNews | Daily Forex News Dashboard</title>
     <link rel="icon" type="image/png" href="./AppIcon.png">
     <link rel="stylesheet" href="./site.css">
 </head>
 <body>
-    <main class="page">
-        <header class="shell">
-            <div class="brand-lockup">
-                <div class="brand-mark" aria-hidden="true"></div>
-                <div class="brand-copy">
-                    <strong>FXNews</strong>
-                    <span>Trader Utility</span>
-                </div>
-            </div>
-            <nav class="shell-nav" aria-label="Primary">
-                <a class="nav-link is-active" href="./index.html">Overview</a>
-                <a class="nav-link" href="./privacy.html">Privacy</a>
-                <a class="nav-link" href="./terms.html">Terms</a>
-                <a class="nav-link" href="./support.html">Support</a>
-            </nav>
-        </header>
+    <header class="site-header" id="home">
+        <a class="brand-lockup" href="./index.html" aria-label="FXNews home">
+            <img class="brand-icon" src="./AppIcon.png" alt="">
+            <span>FXNews</span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+            <a href="#top" data-scroll-top data-nav-link data-section="home" aria-current="page">Home</a>
+            <a href="#today" data-nav-link data-section="today">Today</a>
+            <a href="#calendar" data-nav-link data-section="calendar">Calendar</a>
+            <a href="#download" data-nav-link data-section="download">Get the App</a>
+        </nav>
+    </header>
 
-        <section class="hero">
+    <main>
+        <section class="hero-section">
             <div class="hero-copy">
-                <p class="eyebrow">FXNews</p>
-                <h1>Forex calendar, session tracking, and pair-focused event filtering.</h1>
-                <p class="subhead">FXNews helps traders scan upcoming macro events, follow major trading sessions, and focus on the releases that matter most to the pairs they watch.</p>
-                <div class="button-row" aria-label="Primary links">
-                    <a class="primary" href="https://apps.apple.com/br/app/fxnews/id6765849130?l=en-GB">Download on the App Store</a>
-                    <a href="https://x.com/FXNewsApp">X</a>
-                    <a href="https://www.tiktok.com/@fxnews">TikTok</a>
-                    <a href="https://www.youtube.com/@fxnewsapp">YouTube</a>
+                <h1>Your daily forex news dashboard.</h1>
+                <p class="hero-subtitle">Know what matters before you trade: high-impact events, affected pairs, and the sessions most likely to move price.</p>
+                <div class="action-row" aria-label="Primary actions">
+                    <a class="button button-primary" href="https://apps.apple.com/br/app/fxnews/id6765849130?l=en-GB">Download iPhone</a>
+                    <a class="button button-secondary" href="#today">View Today's Outlook</a>
                 </div>
             </div>
-            <div class="hero-meta">
-                <div class="metric-grid" aria-label="App features">
-                    <div class="metric">
-                        <p class="metric-label">Focus</p>
-                        <p class="metric-value">Weekly FX macro view</p>
+
+            <aside class="market-panel" aria-label="Today's market snapshot">
+                <div class="session-countdown">
+                    <p class="panel-label" id="next-session-label">London opens in</p>
+                    <p class="countdown" id="next-session-countdown">--:--:--</p>
+                </div>
+
+                <div class="event-snapshot">
+                    <p class="panel-label">Next High Impact Event</p>
+                    <div class="event-title-row">
+                        <span class="flag" id="hero-event-country" aria-hidden="true">US</span>
+                        <strong id="hero-event-title">Core CPI</strong>
                     </div>
-                    <div class="metric">
-                        <p class="metric-label">Signals</p>
-                        <p class="metric-value">Impact, country, pair filters</p>
+                    <p class="event-time" id="hero-event-time">2h 17m</p>
+                    <p class="muted">Expected impact</p>
+                    <div class="pair-row" id="hero-event-pairs" aria-label="Expected affected pairs"></div>
+                </div>
+            </aside>
+        </section>
+
+        <section class="brief-section" id="today" aria-labelledby="today-heading">
+            <div class="section-heading">
+                <p class="eyebrow">Today</p>
+                <h2 id="today-heading">Today's Brief</h2>
+            </div>
+
+            <div class="brief-grid">
+                <article class="brief-card sentiment-card">
+                    <p class="panel-label">Market Sentiment</p>
+                    <div class="sentiment">
+                        <span class="status-dot neutral" id="sentiment-dot" aria-hidden="true"></span>
+                        <strong id="sentiment-label">Neutral</strong>
                     </div>
-                    <div class="metric">
-                        <p class="metric-label">Reminders</p>
-                        <p class="metric-value">Events and session opens</p>
+                    <p id="sentiment-summary">Major pairs are waiting on US inflation data before the next clear directional move.</p>
+                </article>
+
+                <article class="brief-card">
+                    <p class="panel-label">High Impact Events</p>
+                    <ol class="event-list" id="brief-events"></ol>
+                </article>
+
+                <article class="brief-card">
+                    <p class="panel-label">Highest Expected Volatility</p>
+                    <div class="volatility-list" id="volatility-pairs"></div>
+                    <p id="volatility-summary">Pairs with USD exposure are likely to see the cleanest reaction around data releases.</p>
+                </article>
+
+                <article class="brief-card" id="sessions">
+                    <p class="panel-label">Session</p>
+                    <strong class="large-readout" id="brief-session">London opens in --:--</strong>
+                    <p id="session-summary">Watch the London open and London/New York overlap for the highest liquidity window.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="calendar-section" id="calendar" aria-labelledby="calendar-heading">
+            <div class="section-heading">
+                <p class="eyebrow">Calendar</p>
+                <h2 id="calendar-heading">Events Worth Watching</h2>
+            </div>
+
+            <div class="calendar-card">
+                <div class="event-time-block">
+                    <time id="calendar-event-time">08:30</time>
+                    <span id="calendar-event-time-label">Local time</span>
+                </div>
+                <div class="event-details">
+                    <div class="event-title-row">
+                        <span class="flag" id="calendar-event-country" aria-hidden="true">US</span>
+                        <strong id="calendar-event-title">Core CPI</strong>
                     </div>
+                    <div class="impact-stars" id="calendar-event-impact" aria-label="Five star impact">*****</div>
+                    <dl class="forecast-grid">
+                        <div>
+                            <dt>Forecast</dt>
+                            <dd id="calendar-event-expected">0.3%</dd>
+                        </div>
+                        <div>
+                            <dt>Previous</dt>
+                            <dd id="calendar-event-previous">0.2%</dd>
+                        </div>
+                        <div>
+                            <dt>Actual</dt>
+                            <dd id="calendar-event-forecast">0.4%</dd>
+                        </div>
+                    </dl>
+                    <div class="pair-row" id="calendar-event-pairs"></div>
                 </div>
             </div>
         </section>
 
-        <section class="grid">
-            <article class="card">
-                <p class="section-label">Workspace</p>
-                <h2>Calendar</h2>
-                <p>Browse the weekly economic calendar with grouped daily sections, impact filtering, and fallback data handling for reliability.</p>
+        <section class="content-grid" id="learn" aria-label="Platform sections">
+            <article>
+                <p class="eyebrow">Currencies</p>
+                <h2>Currency pages for daily context.</h2>
+                <p>Upcoming events, weekly outlooks, and affected pairs for USD, EUR, GBP, JPY, AUD, CAD, CHF, and NZD.</p>
             </article>
-
-            <article class="card">
-                <p class="section-label">Watchlist</p>
-                <h2>My Pairs</h2>
-                <p>Build a watchlist of forex pairs and quickly spot which upcoming releases are most relevant to those instruments.</p>
+            <article>
+                <p class="eyebrow">Pairs</p>
+                <h2>Pair pages built around risk.</h2>
+                <p>GBP/USD, EUR/USD, USD/JPY, and the other majors get a clean view of today&apos;s catalysts and session exposure.</p>
             </article>
-
-            <article class="card">
-                <p class="section-label">Timing</p>
-                <h2>Sessions</h2>
-                <p>Track major forex trading sessions and overlap windows in your local time zone, with optional reminders.</p>
-            </article>
-
-            <article class="card">
-                <p class="section-label">Control</p>
-                <h2>Settings</h2>
-                <p>Control notifications, quiet hours, appearance, time zone behavior, and calendar cache management from one place.</p>
+            <article>
+                <p class="eyebrow">Learn</p>
+                <h2>Simple explainers for forex news.</h2>
+                <p>CPI, NFP, interest rates, GDP, central banks, and how macro releases can move currency pairs.</p>
             </article>
         </section>
 
-        <footer class="card site-footer">
-            <div class="footer-brand">
-                <strong>FXNews</strong>
-                <span>Trader Utility</span>
+        <section class="download-section" id="download" aria-labelledby="download-heading">
+            <div class="download-copy">
+                <p class="eyebrow">Mobile App</p>
+                <h2 id="download-heading">Trade the day with FXNews on iPhone.</h2>
+                <p>Get high-impact event reminders, track the pairs you care about, and keep session timing close without leaving your phone.</p>
+                <div class="app-feature-list" aria-label="App features">
+                    <span>News alerts</span>
+                    <span>Saved pairs</span>
+                    <span>Session reminders</span>
+                </div>
             </div>
-            <nav class="footer-nav" aria-label="Footer">
-                <a href="./index.html">Overview</a>
-                <a href="./privacy.html">Privacy</a>
-                <a href="./terms.html">Terms</a>
-                <a href="./support.html">Support</a>
-                <a href="mailto:fxnews.app@gmail.com">Contact</a>
-            </nav>
-            <div class="footer-meta" aria-label="Company details">
-                <span>Forex calendar, session tracking, and reminders</span>
-                <span>Independent product</span>
-                <span>Support: fxnews.app@gmail.com</span>
+            <div class="download-card">
+                <img src="./AppIcon.png" alt="" class="download-icon">
+                <span>Forex calendar and session alerts</span>
+                <a class="button button-primary" href="https://apps.apple.com/br/app/fxnews/id6765849130?l=en-GB">Download on the App Store</a>
             </div>
-        </footer>
+        </section>
     </main>
+
+    <footer class="site-footer">
+        <strong>FXNews</strong>
+        <nav aria-label="Footer">
+            <a href="./privacy.html">Privacy</a>
+            <a href="./legal/terms/index.html">Terms</a>
+            <a href="./support/index.html">Support</a>
+            <a href="mailto:fxnews.app@gmail.com">Contact</a>
+        </nav>
+    </footer>
+
+    <script>
+        const fallbackBrief = {
+            marketSentiment: {
+                status: "neutral",
+                label: "Neutral",
+                summary: "Major pairs are waiting on US inflation data before the next clear directional move."
+            },
+            highImpactEvents: [
+                { time: "08:30", label: "USD CPI" },
+                { time: "10:00", label: "CAD GDP" },
+                { time: "14:00", label: "FOMC Minutes" }
+            ],
+            volatility: {
+                pairs: ["GBP/USD", "EUR/USD"],
+                summary: "Pairs with USD exposure are likely to see the cleanest reaction around data releases."
+            },
+            session: {
+                summary: "Watch the London open and London/New York overlap for the highest liquidity window."
+            },
+            nextHighImpactEvent: {
+                country: "US",
+                title: "Core CPI",
+                timeUntil: "2h 17m",
+                pairs: ["EUR/USD", "GBP/USD", "USD/JPY"]
+            },
+            calendarEvent: {
+                time: "08:30",
+                timeLabel: "Local time",
+                country: "US",
+                title: "Core CPI",
+                impactStars: 5,
+                expected: "0.3%",
+                previous: "0.2%",
+                forecast: "0.4%",
+                pairs: ["EUR/USD", "GBP/USD", "USD/JPY"]
+            }
+        };
+        const calendarBaseURL = "https://fxnews-calendar-worker.fxnews-alexmorrison.workers.dev/calendar/";
+
+        const sessions = [
+            { name: "Sydney", hour: 22 },
+            { name: "Tokyo", hour: 0 },
+            { name: "London", hour: 7 },
+            { name: "New York", hour: 12 }
+        ];
+
+        function nextSession(now) {
+            const candidates = sessions.map((session) => {
+                const date = new Date(now);
+                date.setUTCHours(session.hour, 0, 0, 0);
+                if (date <= now) {
+                    date.setUTCDate(date.getUTCDate() + 1);
+                }
+                return { ...session, date };
+            });
+
+            return candidates.sort((a, b) => a.date - b.date)[0];
+        }
+
+        function formatDuration(milliseconds) {
+            const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+            const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+            const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+            const seconds = String(totalSeconds % 60).padStart(2, "0");
+            return `${hours}:${minutes}:${seconds}`;
+        }
+
+        function updateSessionCountdown() {
+            const now = new Date();
+            const session = nextSession(now);
+            const countdown = formatDuration(session.date - now);
+            const label = `${session.name} opens in`;
+
+            document.getElementById("next-session-label").textContent = label;
+            document.getElementById("next-session-countdown").textContent = countdown;
+            document.getElementById("brief-session").textContent = `${label} ${countdown.slice(0, 5)}`;
+        }
+
+        updateSessionCountdown();
+        window.setInterval(updateSessionCountdown, 1000);
+
+        function replaceChildrenWithTextSpans(element, values) {
+            element.replaceChildren();
+            values.forEach((value) => {
+                const span = document.createElement("span");
+                span.textContent = value;
+                element.append(span);
+            });
+        }
+
+        function renderDailyBrief(brief) {
+            document.getElementById("sentiment-dot").className = `status-dot ${brief.marketSentiment.status}`;
+            document.getElementById("sentiment-label").textContent = brief.marketSentiment.label;
+            document.getElementById("sentiment-summary").textContent = brief.marketSentiment.summary;
+
+            const eventList = document.getElementById("brief-events");
+            eventList.replaceChildren();
+            brief.highImpactEvents.forEach((event) => {
+                const item = document.createElement("li");
+                const time = document.createElement("time");
+                const label = document.createElement("span");
+
+                time.textContent = event.time;
+                label.textContent = event.label;
+                item.append(time, label);
+                eventList.append(item);
+            });
+
+            replaceChildrenWithTextSpans(document.getElementById("volatility-pairs"), brief.volatility.pairs);
+            document.getElementById("volatility-summary").textContent = brief.volatility.summary;
+            document.getElementById("session-summary").textContent = brief.session.summary;
+
+            document.getElementById("hero-event-country").textContent = brief.nextHighImpactEvent.country;
+            document.getElementById("hero-event-title").textContent = brief.nextHighImpactEvent.title;
+            document.getElementById("hero-event-time").textContent = brief.nextHighImpactEvent.timeUntil;
+            replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), brief.nextHighImpactEvent.pairs);
+
+            const calendarEvent = brief.calendarEvent;
+            const impactStars = Math.max(1, Math.min(5, Number(calendarEvent.impactStars) || 1));
+
+            document.getElementById("calendar-event-time").textContent = calendarEvent.time;
+            document.getElementById("calendar-event-time-label").textContent = calendarEvent.timeLabel;
+            document.getElementById("calendar-event-country").textContent = calendarEvent.country;
+            document.getElementById("calendar-event-title").textContent = calendarEvent.title;
+            document.getElementById("calendar-event-impact").textContent = "*".repeat(impactStars);
+            document.getElementById("calendar-event-impact").setAttribute("aria-label", `${impactStars} star impact`);
+            document.getElementById("calendar-event-expected").textContent = calendarEvent.expected;
+            document.getElementById("calendar-event-previous").textContent = calendarEvent.previous;
+            document.getElementById("calendar-event-forecast").textContent = calendarEvent.forecast;
+            replaceChildrenWithTextSpans(document.getElementById("calendar-event-pairs"), calendarEvent.pairs);
+        }
+
+        function utcWeekIdentifier(date) {
+            const dateSafelyInsideTradingWeek = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+            const day = dateSafelyInsideTradingWeek.getUTCDay();
+            const daysSinceMonday = (day + 6) % 7;
+            const monday = new Date(Date.UTC(
+                dateSafelyInsideTradingWeek.getUTCFullYear(),
+                dateSafelyInsideTradingWeek.getUTCMonth(),
+                dateSafelyInsideTradingWeek.getUTCDate()
+            ));
+
+            monday.setUTCDate(monday.getUTCDate() - daysSinceMonday);
+            return monday.toISOString().slice(0, 10);
+        }
+
+        function previousWeekIdentifier(weekIdentifier) {
+            const date = new Date(`${weekIdentifier}T00:00:00Z`);
+            date.setUTCDate(date.getUTCDate() - 7);
+            return date.toISOString().slice(0, 10);
+        }
+
+        function nextWeekIdentifier(weekIdentifier) {
+            const date = new Date(`${weekIdentifier}T00:00:00Z`);
+            date.setUTCDate(date.getUTCDate() + 7);
+            return date.toISOString().slice(0, 10);
+        }
+
+        async function fetchCalendarResponse() {
+            const currentWeek = utcWeekIdentifier(new Date());
+            const weekIdentifiers = [
+                currentWeek,
+                previousWeekIdentifier(currentWeek),
+                nextWeekIdentifier(currentWeek)
+            ];
+
+            for (const weekIdentifier of weekIdentifiers) {
+                const response = await fetch(`${calendarBaseURL}${weekIdentifier}.json`, { cache: "no-store" });
+                if (response.ok) {
+                    return response.json();
+                }
+            }
+
+            throw new Error("No Cloudflare calendar data is available.");
+        }
+
+        function formatPair(pair) {
+            const normalized = pair.toUpperCase().replace(/[^A-Z]/g, "");
+            if (normalized.length === 6) {
+                return `${normalized.slice(0, 3)}/${normalized.slice(3)}`;
+            }
+
+            return pair;
+        }
+
+        function formatEventTime(date) {
+            return new Intl.DateTimeFormat(undefined, {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+            }).format(date);
+        }
+
+        function formatEventDateTime(date) {
+            return new Intl.DateTimeFormat(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+            }).format(date);
+        }
+
+        function formatTimeUntil(date, now) {
+            const totalMinutes = Math.max(0, Math.round((date - now) / 60000));
+            if (totalMinutes < 60) {
+                return `${totalMinutes}m`;
+            }
+
+            if (totalMinutes < 24 * 60) {
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+                return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+            }
+
+            return formatEventDateTime(date);
+        }
+
+        function isSameLocalDay(date, referenceDate) {
+            return date.getFullYear() === referenceDate.getFullYear()
+                && date.getMonth() === referenceDate.getMonth()
+                && date.getDate() === referenceDate.getDate();
+        }
+
+        function impactStars(impact) {
+            switch (impact) {
+            case "high":
+                return 5;
+            case "medium":
+                return 3;
+            default:
+                return 1;
+            }
+        }
+
+        function impactWeight(impact) {
+            switch (impact) {
+            case "high":
+                return 3;
+            case "medium":
+                return 2;
+            default:
+                return 1;
+            }
+        }
+
+        function normalizeCalendarEvent(event) {
+            const timestamp = new Date(event.timestamp ?? event.date);
+            const currency = (event.currency ?? event.country ?? "").toUpperCase();
+            const country = (event.country ?? currency.slice(0, 2)).toUpperCase();
+            const relatedPairs = Array.isArray(event.relatedPairs) ? event.relatedPairs.map(formatPair) : [];
+
+            return {
+                title: event.title,
+                country,
+                currency,
+                timestamp,
+                impact: String(event.impact ?? "low").toLowerCase(),
+                forecast: event.forecast,
+                previous: event.previous,
+                actual: event.actual,
+                relatedPairs
+            };
+        }
+
+        function topVolatilityPairs(events) {
+            const scores = new Map();
+            events.forEach((event) => {
+                event.relatedPairs.forEach((pair) => {
+                    scores.set(pair, (scores.get(pair) ?? 0) + impactWeight(event.impact));
+                });
+            });
+
+            return Array.from(scores.entries())
+                .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+                .slice(0, 3)
+                .map(([pair]) => pair);
+        }
+
+        function sentimentForEvents(events, upcomingEvents, now) {
+            const highImpactSoon = upcomingEvents.some((event) =>
+                event.impact === "high" && event.timestamp - now <= 6 * 60 * 60 * 1000
+            );
+            const highImpactToday = events.filter((event) => event.impact === "high").length;
+            const mediumImpactToday = events.filter((event) => event.impact === "medium").length;
+
+            if (highImpactSoon) {
+                return {
+                    status: "cautious",
+                    label: "Event Risk",
+                    summary: "High-impact releases are close, so major pairs may stay headline-sensitive around the data window."
+                };
+            }
+
+            if (highImpactToday > 0 || mediumImpactToday >= 3) {
+                return {
+                    status: "neutral",
+                    label: "Active",
+                    summary: "The calendar has enough scheduled catalysts to keep traders focused on event timing and affected pairs."
+                };
+            }
+
+            return {
+                status: "neutral",
+                label: "Neutral",
+                summary: "The calendar is lighter, so session flow may matter more than scheduled news until the next major release."
+            };
+        }
+
+        function buildBriefFromCalendar(calendarResponse) {
+            const now = new Date();
+            const events = (calendarResponse.events ?? [])
+                .map(normalizeCalendarEvent)
+                .filter((event) => event.title && !Number.isNaN(event.timestamp.getTime()))
+                .sort((a, b) => a.timestamp - b.timestamp);
+            const todayEvents = events.filter((event) => isSameLocalDay(event.timestamp, now));
+            const upcomingEvents = events.filter((event) => event.timestamp >= now);
+            const displayedEvents = todayEvents.filter((event) => event.impact === "high").length > 0
+                ? todayEvents.filter((event) => event.impact === "high")
+                : todayEvents.filter((event) => event.impact === "medium");
+            const highImpactEvents = (displayedEvents.length > 0 ? displayedEvents : upcomingEvents)
+                .slice(0, 3)
+                .map((event) => ({
+                    time: formatEventTime(event.timestamp),
+                    label: `${event.currency} ${event.title}`
+                }));
+            const nextMarketEvent = upcomingEvents.find((event) => event.impact === "high")
+                ?? upcomingEvents.find((event) => event.impact === "medium")
+                ?? upcomingEvents[0]
+                ?? events[events.length - 1];
+            const volatilityEvents = todayEvents.filter((event) => ["high", "medium"].includes(event.impact));
+            const volatilityPairs = topVolatilityPairs(volatilityEvents.length > 0 ? volatilityEvents : upcomingEvents);
+            const fallbackPairs = nextMarketEvent?.relatedPairs.slice(0, 3) ?? [];
+
+            return {
+                marketSentiment: sentimentForEvents(todayEvents, upcomingEvents, now),
+                highImpactEvents: highImpactEvents.length > 0 ? highImpactEvents : fallbackBrief.highImpactEvents,
+                volatility: {
+                    pairs: volatilityPairs.length > 0 ? volatilityPairs : fallbackPairs,
+                    summary: volatilityPairs.length > 0
+                        ? "Pairs with the most exposure to today's scheduled releases are likely to see the cleanest event-driven movement."
+                        : "The next listed catalyst is driving the main pair watchlist."
+                },
+                session: {
+                    summary: "Watch the active session and overlap windows alongside scheduled releases for the highest liquidity conditions."
+                },
+                nextHighImpactEvent: nextMarketEvent ? {
+                    country: nextMarketEvent.country,
+                    title: nextMarketEvent.title,
+                    timeUntil: formatTimeUntil(nextMarketEvent.timestamp, now),
+                    pairs: nextMarketEvent.relatedPairs.slice(0, 3)
+                } : fallbackBrief.nextHighImpactEvent,
+                calendarEvent: nextMarketEvent ? {
+                    time: formatEventTime(nextMarketEvent.timestamp),
+                    timeLabel: "Local time",
+                    country: nextMarketEvent.country,
+                    title: nextMarketEvent.title,
+                    impactStars: impactStars(nextMarketEvent.impact),
+                    expected: nextMarketEvent.forecast ?? "-",
+                    previous: nextMarketEvent.previous ?? "-",
+                    forecast: nextMarketEvent.actual ?? "-",
+                    pairs: nextMarketEvent.relatedPairs.slice(0, 3)
+                } : fallbackBrief.calendarEvent
+            };
+        }
+
+        async function loadDailyBrief() {
+            try {
+                const calendarResponse = await fetchCalendarResponse();
+                renderDailyBrief(buildBriefFromCalendar(calendarResponse));
+                return;
+            } catch (calendarError) {
+                console.warn(calendarError);
+            }
+
+            try {
+                const response = await fetch("./daily-brief.json", { cache: "no-store" });
+                if (!response.ok) {
+                    throw new Error(`Unable to load daily brief: ${response.status}`);
+                }
+                renderDailyBrief(await response.json());
+            } catch (error) {
+                console.warn(error);
+                renderDailyBrief(fallbackBrief);
+            }
+        }
+
+        loadDailyBrief();
+
+        const navLinks = Array.from(document.querySelectorAll("[data-nav-link]"));
+        const scrollSections = ["today", "calendar", "download"].map((id) => ({
+            id,
+            element: document.getElementById(id)
+        }));
+
+        function setActiveNav(sectionId) {
+            navLinks.forEach((link) => {
+                if (link.dataset.section === sectionId) {
+                    link.setAttribute("aria-current", "page");
+                } else {
+                    link.removeAttribute("aria-current");
+                }
+            });
+        }
+
+        function updateActiveNav() {
+            if (window.scrollY < 180) {
+                setActiveNav("home");
+                return;
+            }
+
+            const distanceFromBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+            if (distanceFromBottom < 120) {
+                setActiveNav("download");
+                return;
+            }
+
+            const currentSection = scrollSections.reduce((current, section) => {
+                const top = section.element.offsetTop;
+                return window.scrollY + 220 >= top ? section.id : current;
+            }, "today");
+
+            setActiveNav(currentSection);
+        }
+
+        document.querySelector("[data-scroll-top]").addEventListener("click", (event) => {
+            event.preventDefault();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            history.replaceState(null, "", window.location.pathname);
+        });
+
+        updateActiveNav();
+        window.addEventListener("scroll", updateActiveNav, { passive: true });
+    </script>
 </body>
 </html>
