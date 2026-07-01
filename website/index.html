@@ -40,13 +40,13 @@
                 </div>
 
                 <div class="event-snapshot">
-                    <p class="panel-label">Next High Impact Event</p>
+                    <p class="panel-label" id="hero-event-label">Next High Impact Event</p>
                     <div class="event-title-row">
                         <span class="flag" id="hero-event-country" aria-hidden="true">US</span>
                         <strong id="hero-event-title">Core CPI</strong>
                     </div>
                     <p class="event-time" id="hero-event-time">2h 17m</p>
-                    <p class="muted">Expected impact</p>
+                    <p class="muted" id="hero-event-summary">Expected impact</p>
                     <div class="pair-row" id="hero-event-pairs" aria-label="Expected affected pairs"></div>
                 </div>
             </aside>
@@ -187,9 +187,11 @@
                 summary: "Watch the London open and London/New York overlap for the highest liquidity window."
             },
             nextHighImpactEvent: {
+                label: "Next High Impact Event",
                 country: "US",
                 title: "Core CPI",
                 timeUntil: "2h 17m",
+                summary: "Expected impact",
                 pairs: ["EUR/USD", "GBP/USD", "USD/JPY"]
             },
             calendarEvent: {
@@ -207,16 +209,38 @@
         const calendarBaseURL = "https://fxnews-calendar-worker.fxnews-alexmorrison.workers.dev/calendar/";
 
         const sessions = [
-            { name: "Sydney", hour: 22 },
-            { name: "Tokyo", hour: 0 },
-            { name: "London", hour: 7 },
-            { name: "New York", hour: 12 }
+            { name: "Sydney", openHour: 22, closeHour: 7 },
+            { name: "Tokyo", openHour: 0, closeHour: 9 },
+            { name: "London", openHour: 7, closeHour: 16 },
+            { name: "New York", openHour: 12, closeHour: 21 }
         ];
+        const highImpactHeroWindow = 6 * 60 * 60 * 1000;
+        const justOpenedWindow = 60 * 60 * 1000;
 
-        function nextSession(now) {
+        function sessionOpenBefore(session, now) {
+            const date = new Date(now);
+            date.setUTCHours(session.openHour, 0, 0, 0);
+            if (date > now) {
+                date.setUTCDate(date.getUTCDate() - 1);
+            }
+
+            return date;
+        }
+
+        function sessionCloseAfterOpen(session, openDate) {
+            const closeDate = new Date(openDate);
+            closeDate.setUTCHours(session.closeHour, 0, 0, 0);
+            if (session.closeHour <= session.openHour) {
+                closeDate.setUTCDate(closeDate.getUTCDate() + 1);
+            }
+
+            return closeDate;
+        }
+
+        function nextSessionOpen(now) {
             const candidates = sessions.map((session) => {
                 const date = new Date(now);
-                date.setUTCHours(session.hour, 0, 0, 0);
+                date.setUTCHours(session.openHour, 0, 0, 0);
                 if (date <= now) {
                     date.setUTCDate(date.getUTCDate() + 1);
                 }
@@ -224,6 +248,104 @@
             });
 
             return candidates.sort((a, b) => a.date - b.date)[0];
+        }
+
+        function isForexMarketClosed(now) {
+            const day = now.getUTCDay();
+            const hour = now.getUTCHours();
+
+            return day === 6 || (day === 5 && hour >= 22) || (day === 0 && hour < 22);
+        }
+
+        function nextForexMarketOpen(now) {
+            const date = new Date(now);
+            date.setUTCSeconds(0, 0);
+
+            if (date.getUTCDay() === 0 && date.getUTCHours() < 22) {
+                date.setUTCHours(22, 0, 0, 0);
+                return date;
+            }
+
+            const daysUntilSunday = (7 - date.getUTCDay()) % 7;
+            date.setUTCDate(date.getUTCDate() + daysUntilSunday);
+            date.setUTCHours(22, 0, 0, 0);
+            if (date <= now) {
+                date.setUTCDate(date.getUTCDate() + 7);
+            }
+
+            return date;
+        }
+
+        function activeSessions(now) {
+            if (isForexMarketClosed(now)) {
+                return [];
+            }
+
+            return sessions
+                .map((session) => {
+                    const openedAt = sessionOpenBefore(session, now);
+                    const closesAt = sessionCloseAfterOpen(session, openedAt);
+                    return { ...session, openedAt, closesAt };
+                })
+                .filter((session) => session.openedAt <= now && session.closesAt > now);
+        }
+
+        function sessionSnapshot(now = new Date()) {
+            if (isForexMarketClosed(now)) {
+                const opensAt = nextForexMarketOpen(now);
+                return {
+                    label: "Market closed",
+                    readout: formatDuration(opensAt - now),
+                    briefReadout: `Market opens in ${formatDuration(opensAt - now).slice(0, 5)}`,
+                    title: "Weekend market close",
+                    summary: "Forex trading resumes with the Sydney open.",
+                    chips: ["Sydney", "Weekly open"]
+                };
+            }
+
+            const active = activeSessions(now);
+            const recentlyOpened = active
+                .filter((session) => now - session.openedAt <= justOpenedWindow)
+                .sort((a, b) => b.openedAt - a.openedAt)[0];
+
+            if (recentlyOpened) {
+                return {
+                    label: `${recentlyOpened.name} just opened`,
+                    readout: formatDuration(now - recentlyOpened.openedAt),
+                    briefReadout: `${recentlyOpened.name} open ${formatDuration(now - recentlyOpened.openedAt).slice(0, 5)}`,
+                    title: `${recentlyOpened.name} session just opened`,
+                    summary: `Watch early ${recentlyOpened.name} liquidity as spreads and participation settle.`,
+                    chips: active.map((session) => session.name)
+                };
+            }
+
+            if (active.length > 0) {
+                const nextClose = active.reduce((earliest, session) =>
+                    session.closesAt < earliest.closesAt ? session : earliest
+                );
+                const title = active.length > 1
+                    ? `${active.map((session) => session.name).join(" / ")} overlap`
+                    : `${active[0].name} session active`;
+
+                return {
+                    label: title,
+                    readout: formatDuration(nextClose.closesAt - now),
+                    briefReadout: `${title} ${formatDuration(nextClose.closesAt - now).slice(0, 5)}`,
+                    title,
+                    summary: `${nextClose.name} closes next. Use the current session state alongside scheduled news risk.`,
+                    chips: active.map((session) => session.name)
+                };
+            }
+
+            const session = nextSessionOpen(now);
+            return {
+                label: `${session.name} opens in`,
+                readout: formatDuration(session.date - now),
+                briefReadout: `${session.name} opens in ${formatDuration(session.date - now).slice(0, 5)}`,
+                title: `${session.name} opens next`,
+                summary: "No major session is active right now. The next open is the main liquidity transition.",
+                chips: [session.name, "Next open"]
+            };
         }
 
         function formatDuration(milliseconds) {
@@ -236,13 +358,19 @@
 
         function updateSessionCountdown() {
             const now = new Date();
-            const session = nextSession(now);
-            const countdown = formatDuration(session.date - now);
-            const label = `${session.name} opens in`;
+            const session = sessionSnapshot(now);
 
-            document.getElementById("next-session-label").textContent = label;
-            document.getElementById("next-session-countdown").textContent = countdown;
-            document.getElementById("brief-session").textContent = `${label} ${countdown.slice(0, 5)}`;
+            document.getElementById("next-session-label").textContent = session.label;
+            document.getElementById("next-session-countdown").textContent = session.readout;
+            document.getElementById("brief-session").textContent = session.briefReadout;
+
+            if (document.getElementById("hero-event-label").textContent === "Session Focus") {
+                document.getElementById("hero-event-country").hidden = true;
+                document.getElementById("hero-event-title").textContent = session.title;
+                document.getElementById("hero-event-time").textContent = session.readout;
+                document.getElementById("hero-event-summary").textContent = "No high-impact release is due in the next 6 hours.";
+                replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), session.chips);
+            }
         }
 
         updateSessionCountdown();
@@ -279,10 +407,13 @@
             document.getElementById("volatility-summary").textContent = brief.volatility.summary;
             document.getElementById("session-summary").textContent = brief.session.summary;
 
-            document.getElementById("hero-event-country").textContent = brief.nextHighImpactEvent.country;
+            document.getElementById("hero-event-label").textContent = brief.nextHighImpactEvent.label;
+            document.getElementById("hero-event-country").hidden = !brief.nextHighImpactEvent.country;
+            document.getElementById("hero-event-country").textContent = brief.nextHighImpactEvent.country ?? "";
             document.getElementById("hero-event-title").textContent = brief.nextHighImpactEvent.title;
             document.getElementById("hero-event-time").textContent = brief.nextHighImpactEvent.timeUntil;
-            replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), brief.nextHighImpactEvent.pairs);
+            document.getElementById("hero-event-summary").textContent = brief.nextHighImpactEvent.summary;
+            replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), brief.nextHighImpactEvent.pairs ?? []);
 
             const calendarEvent = brief.calendarEvent;
             document.getElementById("calendar-event-time").textContent = calendarEvent.time;
@@ -464,6 +595,17 @@
             return `${formatter.format(currencies)} bank holiday may reduce liquidity in related pairs today.`;
         }
 
+        function upcomingFirstByTime(events, now) {
+            const upcoming = events
+                .filter((event) => event.timestamp >= now)
+                .sort((a, b) => a.timestamp - b.timestamp);
+            const past = events
+                .filter((event) => event.timestamp < now)
+                .sort((a, b) => a.timestamp - b.timestamp);
+
+            return [...upcoming, ...past];
+        }
+
         function sentimentForEvents(events, upcomingEvents, now, holidays) {
             const highImpactSoon = upcomingEvents.some((event) =>
                 event.impact === "high" && event.timestamp - now <= 6 * 60 * 60 * 1000
@@ -506,16 +648,22 @@
             const todayMarketEvents = todayEvents.filter((event) => !event.isHoliday);
             const upcomingEvents = events.filter((event) => event.timestamp >= now);
             const upcomingMarketEvents = upcomingEvents.filter((event) => !event.isHoliday);
-            const prioritizedTodayEvents = [
+            const prioritizedTodayEvents = upcomingFirstByTime([
                 ...todayMarketEvents.filter((event) => event.impact === "high"),
-                ...todayMarketEvents.filter((event) => event.impact === "medium"),
-                ...todayMarketEvents.filter((event) => event.impact === "low")
-            ];
+                ...todayMarketEvents.filter((event) => event.impact === "medium")
+            ], now);
+            const lowPriorityTodayEvents = upcomingFirstByTime(
+                todayMarketEvents.filter((event) => event.impact === "low"),
+                now
+            );
             const holidayItems = todayHolidays.map((event) => ({
                 time: "Holiday",
                 label: `${event.currency} ${event.title}`
             }));
-            const marketItems = (prioritizedTodayEvents.length > 0 ? prioritizedTodayEvents : upcomingMarketEvents)
+            const calendarEvents = prioritizedTodayEvents.length > 0
+                ? [...prioritizedTodayEvents, ...lowPriorityTodayEvents]
+                : upcomingFirstByTime(upcomingMarketEvents, now);
+            const marketItems = calendarEvents
                 .map((event) => ({
                     time: formatEventTime(event.timestamp),
                     label: `${event.currency} ${event.title}`
@@ -525,6 +673,10 @@
                 ?? upcomingMarketEvents.find((event) => event.impact === "medium")
                 ?? upcomingMarketEvents[0]
                 ?? events[events.length - 1];
+            const nearbyHighImpactEvent = upcomingMarketEvents.find((event) =>
+                event.impact === "high" && event.timestamp - now <= highImpactHeroWindow
+            );
+            const currentSession = sessionSnapshot(now);
             const volatilityEvents = todayMarketEvents.filter((event) => ["high", "medium"].includes(event.impact));
             const volatilityPairs = topVolatilityPairs(volatilityEvents.length > 0 ? volatilityEvents : upcomingMarketEvents);
             const fallbackPairs = nextMarketEvent?.relatedPairs.slice(0, 3) ?? [];
@@ -542,12 +694,21 @@
                 session: {
                     summary: "Watch the active session and overlap windows alongside scheduled releases for the highest liquidity conditions."
                 },
-                nextHighImpactEvent: nextMarketEvent ? {
-                    country: nextMarketEvent.country,
-                    title: nextMarketEvent.title,
-                    timeUntil: formatTimeUntil(nextMarketEvent.timestamp, now),
-                    pairs: nextMarketEvent.relatedPairs.slice(0, 3)
-                } : fallbackBrief.nextHighImpactEvent,
+                nextHighImpactEvent: nearbyHighImpactEvent ? {
+                    label: "Next High Impact Event",
+                    country: nearbyHighImpactEvent.country,
+                    title: nearbyHighImpactEvent.title,
+                    timeUntil: formatTimeUntil(nearbyHighImpactEvent.timestamp, now),
+                    summary: "Expected impact",
+                    pairs: nearbyHighImpactEvent.relatedPairs.slice(0, 3)
+                } : {
+                    label: "Session Focus",
+                    country: null,
+                    title: currentSession.title,
+                    timeUntil: currentSession.readout,
+                    summary: "No high-impact release is due in the next 6 hours.",
+                    pairs: currentSession.chips
+                },
                 calendarEvent: nextMarketEvent ? {
                     time: formatEventTime(nextMarketEvent.timestamp),
                     timeLabel: "Local time",
