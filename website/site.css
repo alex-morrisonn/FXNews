@@ -402,6 +402,12 @@ h2 {
     padding: 24px;
 }
 
+.event-details {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+}
+
 .event-time-block {
     display: grid;
     align-content: start;
@@ -424,7 +430,7 @@ dt {
     text-transform: uppercase;
 }
 
-.impact-stars {
+.impact-label {
     margin-top: 8px;
     color: var(--amber);
     letter-spacing: 0.12em;
@@ -434,6 +440,7 @@ dt {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+    width: 100%;
     margin: 18px 0 0;
 }
 

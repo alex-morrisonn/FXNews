@@ -103,7 +103,7 @@
                         <span class="flag" id="calendar-event-country" aria-hidden="true">US</span>
                         <strong id="calendar-event-title">Core CPI</strong>
                     </div>
-                    <div class="impact-stars" id="calendar-event-impact" aria-label="Five star impact">*****</div>
+                    <div class="impact-label" id="calendar-event-impact">High Impact</div>
                     <dl class="forecast-grid" id="calendar-event-values">
                         <div>
                             <dt>Forecast</dt>
@@ -197,7 +197,7 @@
                 timeLabel: "Local time",
                 country: "US",
                 title: "Core CPI",
-                impactStars: 5,
+                impactLabel: "High Impact",
                 expected: "0.3%",
                 previous: "0.2%",
                 forecast: "0.4%",
@@ -285,14 +285,11 @@
             replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), brief.nextHighImpactEvent.pairs);
 
             const calendarEvent = brief.calendarEvent;
-            const impactStars = Math.max(1, Math.min(5, Number(calendarEvent.impactStars) || 1));
-
             document.getElementById("calendar-event-time").textContent = calendarEvent.time;
             document.getElementById("calendar-event-time-label").textContent = calendarEvent.timeLabel;
             document.getElementById("calendar-event-country").textContent = calendarEvent.country;
             document.getElementById("calendar-event-title").textContent = calendarEvent.title;
-            document.getElementById("calendar-event-impact").textContent = "*".repeat(impactStars);
-            document.getElementById("calendar-event-impact").setAttribute("aria-label", `${impactStars} star impact`);
+            document.getElementById("calendar-event-impact").textContent = calendarEvent.impactLabel;
 
             const hasEventValues = [calendarEvent.expected, calendarEvent.previous]
                 .some((value) => value && value !== "-");
@@ -399,14 +396,14 @@
                 && date.getDate() === referenceDate.getDate();
         }
 
-        function impactStars(impact) {
+        function impactLabel(impact) {
             switch (impact) {
             case "high":
-                return 5;
+                return "High Impact";
             case "medium":
-                return 3;
+                return "Medium Impact";
             default:
-                return 1;
+                return "Low Impact";
             }
         }
 
@@ -556,7 +553,7 @@
                     timeLabel: "Local time",
                     country: nextMarketEvent.country,
                     title: nextMarketEvent.title,
-                    impactStars: impactStars(nextMarketEvent.impact),
+                    impactLabel: impactLabel(nextMarketEvent.impact),
                     expected: nextMarketEvent.forecast ?? "-",
                     previous: nextMarketEvent.previous ?? "-",
                     pairs: nextMarketEvent.relatedPairs.slice(0, 3)
