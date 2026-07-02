@@ -348,6 +348,26 @@
             };
         }
 
+        function nextSessionFocusSnapshot(now = new Date()) {
+            if (isForexMarketClosed(now)) {
+                const opensAt = nextForexMarketOpen(now);
+                return {
+                    title: "Weekly open ahead",
+                    readout: formatDuration(opensAt - now),
+                    summary: "No high-impact release is due in the next 6 hours.",
+                    chips: ["Sydney", "Weekly open"]
+                };
+            }
+
+            const session = nextSessionOpen(now);
+            return {
+                title: `${session.name} opens next`,
+                readout: formatDuration(session.date - now),
+                summary: "No high-impact release is due in the next 6 hours.",
+                chips: [session.name, "Next open"]
+            };
+        }
+
         function formatDuration(milliseconds) {
             const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
             const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
@@ -365,11 +385,12 @@
             document.getElementById("brief-session").textContent = session.briefReadout;
 
             if (document.getElementById("hero-event-label").textContent === "Session Focus") {
+                const nextFocus = nextSessionFocusSnapshot(now);
                 document.getElementById("hero-event-country").hidden = true;
-                document.getElementById("hero-event-title").textContent = session.title;
-                document.getElementById("hero-event-time").textContent = session.readout;
-                document.getElementById("hero-event-summary").textContent = "No high-impact release is due in the next 6 hours.";
-                replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), session.chips);
+                document.getElementById("hero-event-title").textContent = nextFocus.title;
+                document.getElementById("hero-event-time").textContent = nextFocus.readout;
+                document.getElementById("hero-event-summary").textContent = nextFocus.summary;
+                replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), nextFocus.chips);
             }
         }
 
@@ -676,7 +697,7 @@
             const nearbyHighImpactEvent = upcomingMarketEvents.find((event) =>
                 event.impact === "high" && event.timestamp - now <= highImpactHeroWindow
             );
-            const currentSession = sessionSnapshot(now);
+            const nextSessionFocus = nextSessionFocusSnapshot(now);
             const volatilityEvents = todayMarketEvents.filter((event) => ["high", "medium"].includes(event.impact));
             const volatilityPairs = topVolatilityPairs(volatilityEvents.length > 0 ? volatilityEvents : upcomingMarketEvents);
             const fallbackPairs = nextMarketEvent?.relatedPairs.slice(0, 3) ?? [];
@@ -704,10 +725,10 @@
                 } : {
                     label: "Session Focus",
                     country: null,
-                    title: currentSession.title,
-                    timeUntil: currentSession.readout,
-                    summary: "No high-impact release is due in the next 6 hours.",
-                    pairs: currentSession.chips
+                    title: nextSessionFocus.title,
+                    timeUntil: nextSessionFocus.readout,
+                    summary: nextSessionFocus.summary,
+                    pairs: nextSessionFocus.chips
                 },
                 calendarEvent: nextMarketEvent ? {
                     time: formatEventTime(nextMarketEvent.timestamp),

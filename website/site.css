@@ -257,6 +257,10 @@ h2 {
     letter-spacing: 0;
 }
 
+.flag[hidden] {
+    display: none;
+}
+
 .event-time {
     margin: 12px 0 18px;
     color: var(--amber);
