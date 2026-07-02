@@ -369,10 +369,10 @@ h2 {
 }
 
 .event-list li {
-    display: flex;
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
-    gap: 18px;
+    gap: 20px;
     padding-bottom: 12px;
     border-bottom: 1px solid var(--line);
 }
@@ -386,6 +386,10 @@ h2 {
     color: var(--amber);
     font-variant-numeric: tabular-nums;
     font-weight: 760;
+}
+
+.event-list span {
+    min-width: 0;
 }
 
 .volatility-list {
