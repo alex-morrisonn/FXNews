@@ -328,7 +328,7 @@
                         ? `${latestOpened.name} just opened`
                         : `${latestOpened.name} opened`,
                     readout: formatDuration(now - latestOpened.openedAt),
-                    briefReadout: `${latestOpened.name} open ${formatDuration(now - latestOpened.openedAt).slice(0, 5)}`,
+                    briefReadout: `${latestOpened.name} opened ${formatDuration(now - latestOpened.openedAt).slice(0, 5)} ago`,
                     title: `${latestOpened.name} session active`,
                     summary: `The ${latestOpened.name} session is active. Watch liquidity conditions alongside scheduled news risk.`,
                     chips: active.map((session) => session.name)
