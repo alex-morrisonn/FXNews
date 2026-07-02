@@ -214,8 +214,10 @@
             { name: "London", openHour: 7, closeHour: 16 },
             { name: "New York", openHour: 12, closeHour: 21 }
         ];
-        const highImpactHeroWindow = 6 * 60 * 60 * 1000;
+        const newsHeroWindow = 6 * 60 * 60 * 1000;
+        const nextSessionOpenWindow = 4 * 60 * 60 * 1000;
         const justOpenedWindow = 60 * 60 * 1000;
+        let heroSnapshot = fallbackBrief.nextHighImpactEvent;
 
         function sessionOpenBefore(session, now) {
             const date = new Date(now);
@@ -304,67 +306,42 @@
             }
 
             const active = activeSessions(now);
-            const recentlyOpened = active
-                .filter((session) => now - session.openedAt <= justOpenedWindow)
+            const nextOpen = nextSessionOpen(now);
+
+            if (nextOpen.date - now <= nextSessionOpenWindow) {
+                return {
+                    label: `${nextOpen.name} opens in`,
+                    readout: formatDuration(nextOpen.date - now),
+                    briefReadout: `${nextOpen.name} opens in ${formatDuration(nextOpen.date - now).slice(0, 5)}`,
+                    title: `${nextOpen.name} opens next`,
+                    summary: "The next session open is the main liquidity transition.",
+                    chips: [nextOpen.name, "Next open"]
+                };
+            }
+
+            const latestOpened = active
                 .sort((a, b) => b.openedAt - a.openedAt)[0];
 
-            if (recentlyOpened) {
+            if (latestOpened) {
                 return {
-                    label: `${recentlyOpened.name} just opened`,
-                    readout: formatDuration(now - recentlyOpened.openedAt),
-                    briefReadout: `${recentlyOpened.name} open ${formatDuration(now - recentlyOpened.openedAt).slice(0, 5)}`,
-                    title: `${recentlyOpened.name} session just opened`,
-                    summary: `Watch early ${recentlyOpened.name} liquidity as spreads and participation settle.`,
+                    label: now - latestOpened.openedAt <= justOpenedWindow
+                        ? `${latestOpened.name} just opened`
+                        : `${latestOpened.name} opened`,
+                    readout: formatDuration(now - latestOpened.openedAt),
+                    briefReadout: `${latestOpened.name} open ${formatDuration(now - latestOpened.openedAt).slice(0, 5)}`,
+                    title: `${latestOpened.name} session active`,
+                    summary: `The ${latestOpened.name} session is active. Watch liquidity conditions alongside scheduled news risk.`,
                     chips: active.map((session) => session.name)
                 };
             }
 
-            if (active.length > 0) {
-                const nextClose = active.reduce((earliest, session) =>
-                    session.closesAt < earliest.closesAt ? session : earliest
-                );
-                const title = active.length > 1
-                    ? `${active.map((session) => session.name).join(" / ")} overlap`
-                    : `${active[0].name} session active`;
-
-                return {
-                    label: title,
-                    readout: formatDuration(nextClose.closesAt - now),
-                    briefReadout: `${title} ${formatDuration(nextClose.closesAt - now).slice(0, 5)}`,
-                    title,
-                    summary: `${nextClose.name} closes next. Use the current session state alongside scheduled news risk.`,
-                    chips: active.map((session) => session.name)
-                };
-            }
-
-            const session = nextSessionOpen(now);
             return {
-                label: `${session.name} opens in`,
-                readout: formatDuration(session.date - now),
-                briefReadout: `${session.name} opens in ${formatDuration(session.date - now).slice(0, 5)}`,
-                title: `${session.name} opens next`,
+                label: `${nextOpen.name} opens in`,
+                readout: formatDuration(nextOpen.date - now),
+                briefReadout: `${nextOpen.name} opens in ${formatDuration(nextOpen.date - now).slice(0, 5)}`,
+                title: `${nextOpen.name} opens next`,
                 summary: "No major session is active right now. The next open is the main liquidity transition.",
-                chips: [session.name, "Next open"]
-            };
-        }
-
-        function nextSessionFocusSnapshot(now = new Date()) {
-            if (isForexMarketClosed(now)) {
-                const opensAt = nextForexMarketOpen(now);
-                return {
-                    title: "Weekly open ahead",
-                    readout: formatDuration(opensAt - now),
-                    summary: "No high-impact release is due in the next 6 hours.",
-                    chips: ["Sydney", "Weekly open"]
-                };
-            }
-
-            const session = nextSessionOpen(now);
-            return {
-                title: `${session.name} opens next`,
-                readout: formatDuration(session.date - now),
-                summary: "No high-impact release is due in the next 6 hours.",
-                chips: [session.name, "Next open"]
+                chips: [nextOpen.name, "Next open"]
             };
         }
 
@@ -383,15 +360,7 @@
             document.getElementById("next-session-label").textContent = session.label;
             document.getElementById("next-session-countdown").textContent = session.readout;
             document.getElementById("brief-session").textContent = session.briefReadout;
-
-            if (document.getElementById("hero-event-label").textContent === "Session Focus") {
-                const nextFocus = nextSessionFocusSnapshot(now);
-                document.getElementById("hero-event-country").hidden = true;
-                document.getElementById("hero-event-title").textContent = nextFocus.title;
-                document.getElementById("hero-event-time").textContent = nextFocus.readout;
-                document.getElementById("hero-event-summary").textContent = nextFocus.summary;
-                replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), nextFocus.chips);
-            }
+            renderHeroSnapshot(heroSnapshot, now);
         }
 
         updateSessionCountdown();
@@ -428,13 +397,8 @@
             document.getElementById("volatility-summary").textContent = brief.volatility.summary;
             document.getElementById("session-summary").textContent = brief.session.summary;
 
-            document.getElementById("hero-event-label").textContent = brief.nextHighImpactEvent.label;
-            document.getElementById("hero-event-country").hidden = !brief.nextHighImpactEvent.country;
-            document.getElementById("hero-event-country").textContent = brief.nextHighImpactEvent.country ?? "";
-            document.getElementById("hero-event-title").textContent = brief.nextHighImpactEvent.title;
-            document.getElementById("hero-event-time").textContent = brief.nextHighImpactEvent.timeUntil;
-            document.getElementById("hero-event-summary").textContent = brief.nextHighImpactEvent.summary;
-            replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), brief.nextHighImpactEvent.pairs ?? []);
+            heroSnapshot = brief.nextHighImpactEvent;
+            renderHeroSnapshot(heroSnapshot);
 
             const calendarEvent = brief.calendarEvent;
             document.getElementById("calendar-event-time").textContent = calendarEvent.time;
@@ -454,6 +418,21 @@
             }
 
             replaceChildrenWithTextSpans(document.getElementById("calendar-event-pairs"), calendarEvent.pairs);
+        }
+
+        function renderHeroSnapshot(snapshot, now = new Date()) {
+            const country = snapshot.country ?? "";
+            const readout = snapshot.timestamp
+                ? formatTimeUntil(new Date(snapshot.timestamp), now)
+                : snapshot.timeUntil;
+
+            document.getElementById("hero-event-label").textContent = snapshot.label;
+            document.getElementById("hero-event-country").hidden = !country;
+            document.getElementById("hero-event-country").textContent = country;
+            document.getElementById("hero-event-title").textContent = snapshot.title;
+            document.getElementById("hero-event-time").textContent = readout;
+            document.getElementById("hero-event-summary").textContent = snapshot.summary;
+            replaceChildrenWithTextSpans(document.getElementById("hero-event-pairs"), snapshot.pairs ?? []);
         }
 
         function utcWeekIdentifier(date) {
@@ -658,6 +637,58 @@
             };
         }
 
+        function currentMarketVolatility(now, events) {
+            if (isForexMarketClosed(now)) {
+                return {
+                    title: "Low volatility",
+                    readout: "No upcoming news",
+                    summary: "Markets are closed for the weekend.",
+                    chips: ["Market closed", "Weekend"]
+                };
+            }
+
+            const active = activeSessions(now);
+            const nearbyEvents = events.filter((event) =>
+                Math.abs(event.timestamp - now) <= 90 * 60 * 1000
+            );
+
+            if (nearbyEvents.some((event) => event.impact === "high")) {
+                return {
+                    title: "High volatility",
+                    readout: "No upcoming news",
+                    summary: "A high-impact release window is still close enough to affect price action.",
+                    chips: ["High impact", ...active.map((session) => session.name)]
+                };
+            }
+
+            if (active.length > 1 || nearbyEvents.some((event) => event.impact === "medium")) {
+                return {
+                    title: "Medium volatility",
+                    readout: "No upcoming news",
+                    summary: active.length > 1
+                        ? `${active.map((session) => session.name).join(" / ")} overlap is supporting liquidity.`
+                        : "Session flow is active, but no scheduled news is due in the next 6 hours.",
+                    chips: active.length > 0 ? active.map((session) => session.name) : ["Medium"]
+                };
+            }
+
+            if (active.length > 0) {
+                return {
+                    title: "Low to medium volatility",
+                    readout: "No upcoming news",
+                    summary: `${active[0].name} session is active with no scheduled news due in the next 6 hours.`,
+                    chips: active.map((session) => session.name)
+                };
+            }
+
+            return {
+                title: "Low volatility",
+                readout: "No upcoming news",
+                summary: "No major session or scheduled news catalyst is active right now.",
+                chips: ["Quiet market"]
+            };
+        }
+
         function buildBriefFromCalendar(calendarResponse) {
             const now = new Date();
             const events = (calendarResponse.events ?? [])
@@ -694,10 +725,10 @@
                 ?? upcomingMarketEvents.find((event) => event.impact === "medium")
                 ?? upcomingMarketEvents[0]
                 ?? events[events.length - 1];
-            const nearbyHighImpactEvent = upcomingMarketEvents.find((event) =>
-                event.impact === "high" && event.timestamp - now <= highImpactHeroWindow
+            const nearbyNewsEvent = upcomingMarketEvents.find((event) =>
+                event.timestamp - now <= newsHeroWindow
             );
-            const nextSessionFocus = nextSessionFocusSnapshot(now);
+            const volatilitySnapshot = currentMarketVolatility(now, todayMarketEvents);
             const volatilityEvents = todayMarketEvents.filter((event) => ["high", "medium"].includes(event.impact));
             const volatilityPairs = topVolatilityPairs(volatilityEvents.length > 0 ? volatilityEvents : upcomingMarketEvents);
             const fallbackPairs = nextMarketEvent?.relatedPairs.slice(0, 3) ?? [];
@@ -715,20 +746,21 @@
                 session: {
                     summary: "Watch the active session and overlap windows alongside scheduled releases for the highest liquidity conditions."
                 },
-                nextHighImpactEvent: nearbyHighImpactEvent ? {
-                    label: "Next High Impact Event",
-                    country: nearbyHighImpactEvent.country,
-                    title: nearbyHighImpactEvent.title,
-                    timeUntil: formatTimeUntil(nearbyHighImpactEvent.timestamp, now),
-                    summary: "Expected impact",
-                    pairs: nearbyHighImpactEvent.relatedPairs.slice(0, 3)
+                nextHighImpactEvent: nearbyNewsEvent ? {
+                    label: "Upcoming News Event",
+                    country: nearbyNewsEvent.country,
+                    title: nearbyNewsEvent.title,
+                    timeUntil: formatTimeUntil(nearbyNewsEvent.timestamp, now),
+                    timestamp: nearbyNewsEvent.timestamp.toISOString(),
+                    summary: impactLabel(nearbyNewsEvent.impact),
+                    pairs: nearbyNewsEvent.relatedPairs.slice(0, 3)
                 } : {
-                    label: "Session Focus",
+                    label: "Market Volatility",
                     country: null,
-                    title: nextSessionFocus.title,
-                    timeUntil: nextSessionFocus.readout,
-                    summary: nextSessionFocus.summary,
-                    pairs: nextSessionFocus.chips
+                    title: volatilitySnapshot.title,
+                    timeUntil: volatilitySnapshot.readout,
+                    summary: volatilitySnapshot.summary,
+                    pairs: volatilitySnapshot.chips
                 },
                 calendarEvent: nextMarketEvent ? {
                     time: formatEventTime(nextMarketEvent.timestamp),
