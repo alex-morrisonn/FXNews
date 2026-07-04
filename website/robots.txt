@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /terms.html
+Disallow: /support.html
+
+Sitemap: https://fxnews.app/sitemap.xml

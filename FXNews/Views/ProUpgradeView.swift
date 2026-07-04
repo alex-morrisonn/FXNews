@@ -6,6 +6,7 @@ struct ProUpgradeView: View {
     @Bindable var subscriptionStore: SubscriptionStore
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @State private var isShowingManageSubscriptions = false
 
     var body: some View {
@@ -193,28 +194,9 @@ struct ProUpgradeView: View {
 
                 if subscriptionStore.hasProAccess {
                     activeSubscriptionActions
-                } else if subscriptionStore.isLoadingProducts {
-                    ProgressView("Loading plans...")
-                        .tint(FXNewsPalette.accent)
-                } else if subscriptionStore.sortedProducts.isEmpty {
-                    unavailablePlansMessage
                 } else {
-                    VStack(spacing: 10) {
-                        ForEach(subscriptionStore.sortedProducts, id: \.id) { product in
-                            subscriptionButton(for: product)
-                        }
-                    }
+                    storeKitSubscriptionStore
                 }
-
-                Button("Restore Purchases") {
-                    Task {
-                        await subscriptionStore.restorePurchases()
-                    }
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(FXNewsPalette.accent)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 2)
             }
         }
     }
@@ -247,6 +229,27 @@ struct ProUpgradeView: View {
             Text("StoreKit did not return the monthly or yearly subscription products for this build.")
                 .font(.caption)
                 .foregroundStyle(FXNewsPalette.muted)
+        }
+    }
+
+    @ViewBuilder
+    private var storeKitSubscriptionStore: some View {
+        if let termsURL = URL(string: AppExternalLinks.termsOfServiceURL),
+           let privacyURL = URL(string: AppExternalLinks.privacyPolicyURL) {
+            SubscriptionStoreView(productIDs: SubscriptionProduct.identifiers) {
+                EmptyView()
+            }
+            .subscriptionStorePolicyDestination(url: termsURL, for: .termsOfService)
+            .subscriptionStorePolicyDestination(url: privacyURL, for: .privacyPolicy)
+            .subscriptionStorePolicyForegroundStyle(FXNewsPalette.accent, FXNewsPalette.muted)
+            .storeButton(.visible, for: .restorePurchases, .policies)
+            .storeButton(.hidden, for: .cancellation)
+            .productDescription(.visible)
+            .onInAppPurchaseCompletion { product, result in
+                await subscriptionStore.handleStoreKitViewPurchaseCompletion(product: product, result: result)
+            }
+        } else {
+            unavailablePlansMessage
         }
     }
 
@@ -351,11 +354,20 @@ struct ProUpgradeView: View {
 
                 Spacer(minLength: 8)
 
-                Text(product.displayPrice)
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(Color.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.80)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(product.displayPrice)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(Color.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.80)
+
+                    if let renewalPeriod = renewalPeriodText(for: product) {
+                        Text(renewalPeriod)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Color.white.opacity(0.82))
+                            .lineLimit(1)
+                    }
+                }
             }
             .padding(14)
             .background(
@@ -364,6 +376,60 @@ struct ProUpgradeView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    private var subscriptionLegalFooter: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Subscriptions auto-renew until canceled. Your Apple ID is charged at confirmation of purchase and renewal. You can manage or cancel your subscription in App Store account settings at least 24 hours before the end of the current period.")
+                .font(.caption)
+                .foregroundStyle(FXNewsPalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 12) {
+                Button("Terms of Service") {
+                    openExternalLink(AppExternalLinks.termsOfServiceURL)
+                }
+
+                Button("Privacy Policy") {
+                    openExternalLink(AppExternalLinks.privacyPolicyURL)
+                }
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(FXNewsPalette.accent)
+        }
+        .padding(.top, 2)
+    }
+
+    private func renewalPeriodText(for product: Product) -> String? {
+        guard let subscriptionPeriod = product.subscription?.subscriptionPeriod else {
+            return nil
+        }
+
+        return "per \(periodDescription(subscriptionPeriod))"
+    }
+
+    private func periodDescription(_ period: Product.SubscriptionPeriod) -> String {
+        let unitText: String
+
+        switch period.unit {
+        case .day:
+            unitText = period.value == 1 ? "day" : "days"
+        case .week:
+            unitText = period.value == 1 ? "week" : "weeks"
+        case .month:
+            unitText = period.value == 1 ? "month" : "months"
+        case .year:
+            unitText = period.value == 1 ? "year" : "years"
+        @unknown default:
+            unitText = "period"
+        }
+
+        return period.value == 1 ? unitText : "\(period.value) \(unitText)"
+    }
+
+    private func openExternalLink(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        openURL(url)
     }
 
     private var purchaseMessageBinding: Binding<Bool> {

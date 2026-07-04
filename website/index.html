@@ -3,10 +3,108 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="FXNews is a daily forex news dashboard for economic events, market sessions, affected pairs, and trader reminders.">
-    <title>FXNews | Daily Forex News Dashboard</title>
+    <meta name="description" content="Track high-impact forex news, economic calendar events, market sessions, session overlaps, affected currency pairs, and iPhone trading reminders with FXNews.">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#070b10">
+    <meta name="application-name" content="FXNews">
+    <meta name="apple-mobile-web-app-title" content="FXNews">
+    <meta name="author" content="FXNews">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:site_name" content="FXNews">
+    <meta property="og:title" content="FXNews | Forex Calendar, Market Sessions & High Impact News">
+    <meta property="og:description" content="A daily forex dashboard for economic events, market sessions, affected pairs, and trader reminders.">
+    <meta property="og:url" content="https://fxnews.app/">
+    <meta property="og:image" content="https://fxnews.app/AppIcon.png">
+    <meta property="og:image:secure_url" content="https://fxnews.app/AppIcon.png">
+    <meta property="og:image:width" content="1024">
+    <meta property="og:image:height" content="1024">
+    <meta property="og:image:alt" content="FXNews app icon">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="FXNews | Forex Calendar, Market Sessions & High Impact News">
+    <meta name="twitter:description" content="Track high-impact forex news, market sessions, affected pairs, and reminders.">
+    <meta name="twitter:image" content="https://fxnews.app/AppIcon.png">
+    <meta name="twitter:image:alt" content="FXNews app icon">
+    <title>FXNews | Forex Calendar, Market Sessions & High Impact News</title>
+    <link rel="canonical" href="https://fxnews.app/">
     <link rel="icon" type="image/png" href="./AppIcon.png">
+    <link rel="apple-touch-icon" href="./AppIcon.png">
+    <link rel="manifest" href="./site.webmanifest">
     <link rel="stylesheet" href="./site.css">
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "Organization",
+                    "@id": "https://fxnews.app/#organization",
+                    "name": "FXNews",
+                    "url": "https://fxnews.app/",
+                    "logo": "https://fxnews.app/AppIcon.png",
+                    "email": "fxnews.app@gmail.com"
+                },
+                {
+                    "@type": "WebSite",
+                    "@id": "https://fxnews.app/#website",
+                    "url": "https://fxnews.app/",
+                    "name": "FXNews",
+                    "publisher": {
+                        "@id": "https://fxnews.app/#organization"
+                    },
+                    "description": "A daily forex news dashboard for economic calendar events, market sessions, affected pairs, and trader reminders."
+                },
+                {
+                    "@type": "SoftwareApplication",
+                    "@id": "https://fxnews.app/#app",
+                    "name": "FXNews",
+                    "applicationCategory": "FinanceApplication",
+                    "operatingSystem": "iOS",
+                    "url": "https://fxnews.app/",
+                    "downloadUrl": "https://apps.apple.com/br/app/fxnews/id6765849130?l=en-GB",
+                    "image": "https://fxnews.app/AppIcon.png",
+                    "description": "FXNews helps forex traders track high-impact economic events, affected currency pairs, market sessions, and session reminders.",
+                    "offers": {
+                        "@type": "Offer",
+                        "price": "0",
+                        "priceCurrency": "USD"
+                    },
+                    "publisher": {
+                        "@id": "https://fxnews.app/#organization"
+                    }
+                },
+                {
+                    "@type": "FAQPage",
+                    "@id": "https://fxnews.app/#faq",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": "What does FXNews track?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "FXNews tracks high-impact forex calendar events, affected currency pairs, major market sessions, session overlaps, and iPhone reminders for traders."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Is FXNews financial advice?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "No. FXNews is an informational forex calendar and market session tool. It does not provide financial advice, broker services, trade signals, or trading recommendations."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Which currency pairs does FXNews help monitor?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "FXNews highlights major forex pairs such as EUR/USD, GBP/USD, USD/JPY, AUD/USD, USD/CAD, USD/CHF, and NZD/USD when scheduled news is expected to affect them."
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    </script>
 </head>
 <body>
     <header class="site-header" id="home">
@@ -138,6 +236,28 @@
             </article>
         </section>
 
+        <section class="faq-section" id="faq" aria-labelledby="faq-heading">
+            <div class="section-heading">
+                <p class="eyebrow">Questions</p>
+                <h2 id="faq-heading">Forex news without the noise.</h2>
+            </div>
+
+            <div class="faq-grid">
+                <article>
+                    <h3>What does FXNews track?</h3>
+                    <p>FXNews tracks high-impact forex calendar events, affected currency pairs, major market sessions, session overlaps, and iPhone reminders for traders.</p>
+                </article>
+                <article>
+                    <h3>Is FXNews financial advice?</h3>
+                    <p>No. FXNews is an informational forex calendar and market session tool. It does not provide financial advice, broker services, trade signals, or trading recommendations.</p>
+                </article>
+                <article>
+                    <h3>Which pairs can I monitor?</h3>
+                    <p>FXNews highlights majors including EUR/USD, GBP/USD, USD/JPY, AUD/USD, USD/CAD, USD/CHF, and NZD/USD when scheduled news is expected to affect them.</p>
+                </article>
+            </div>
+        </section>
+
         <section class="download-section" id="download" aria-labelledby="download-heading">
             <div class="download-copy">
                 <p class="eyebrow">Mobile App</p>
@@ -202,7 +322,6 @@
                 impactLabel: "High Impact",
                 expected: "0.3%",
                 previous: "0.2%",
-                forecast: "0.4%",
                 pairs: ["EUR/USD", "GBP/USD", "USD/JPY"]
             }
         };

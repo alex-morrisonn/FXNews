@@ -69,22 +69,16 @@ final class SubscriptionStore {
     func purchase(_ product: Product) async {
         do {
             let result = try await product.purchase()
+            await handlePurchaseResult(result, product: product)
+        } catch {
+            purchaseMessage = error.localizedDescription
+        }
+    }
 
-            switch result {
-            case let .success(.verified(transaction)):
-                purchasedProductIDs.insert(transaction.productID)
-                await transaction.finish()
-                await refreshEntitlements()
-                purchaseMessage = "FXNews Pro is active."
-            case .success(.unverified):
-                purchaseMessage = "The purchase could not be verified."
-            case .pending:
-                purchaseMessage = "The purchase is pending approval."
-            case .userCancelled:
-                break
-            @unknown default:
-                purchaseMessage = "The purchase could not be completed."
-            }
+    func handleStoreKitViewPurchaseCompletion(product: Product, result: Result<Product.PurchaseResult, any Error>) async {
+        do {
+            let purchaseResult = try result.get()
+            await handlePurchaseResult(purchaseResult, product: product)
         } catch {
             purchaseMessage = error.localizedDescription
         }
@@ -119,6 +113,24 @@ final class SubscriptionStore {
         }
 
         purchasedProductIDs = activeProductIDs
+    }
+
+    private func handlePurchaseResult(_ result: Product.PurchaseResult, product: Product) async {
+        switch result {
+        case let .success(.verified(transaction)):
+            purchasedProductIDs.insert(transaction.productID)
+            await transaction.finish()
+            await refreshEntitlements()
+            purchaseMessage = "\(product.displayName) is active."
+        case .success(.unverified):
+            purchaseMessage = "The purchase could not be verified."
+        case .pending:
+            purchaseMessage = "The purchase is pending approval."
+        case .userCancelled:
+            break
+        @unknown default:
+            purchaseMessage = "The purchase could not be completed."
+        }
     }
 
     private func listenForTransactions() -> Task<Void, Never> {

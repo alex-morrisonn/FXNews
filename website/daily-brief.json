@@ -29,9 +29,11 @@
         "summary": "Watch the London open and London/New York overlap for the highest liquidity window."
     },
     "nextHighImpactEvent": {
+        "label": "Next High Impact Event",
         "country": "US",
         "title": "Core CPI",
         "timeUntil": "2h 17m",
+        "summary": "Expected impact",
         "pairs": [
             "EUR/USD",
             "GBP/USD",
@@ -43,10 +45,9 @@
         "timeLabel": "Local time",
         "country": "US",
         "title": "Core CPI",
-        "impactStars": 5,
+        "impactLabel": "High Impact",
         "expected": "0.3%",
         "previous": "0.2%",
-        "forecast": "0.4%",
         "pairs": [
             "EUR/USD",
             "GBP/USD",

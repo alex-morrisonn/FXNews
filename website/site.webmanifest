@@ -1,0 +1,18 @@
+{
+    "name": "FXNews",
+    "short_name": "FXNews",
+    "description": "Forex calendar, high-impact news, affected pairs, market sessions, and iPhone trading reminders.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#07090d",
+    "theme_color": "#070b10",
+    "icons": [
+        {
+            "src": "/AppIcon.png",
+            "sizes": "1024x1024",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
