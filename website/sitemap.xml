@@ -13,12 +13,6 @@
         <priority>0.8</priority>
     </url>
     <url>
-        <loc>https://fxnews.app/high-impact-forex-news/</loc>
-        <lastmod>2026-07-05</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.8</priority>
-    </url>
-    <url>
         <loc>https://fxnews.app/forex-market-sessions/</loc>
         <lastmod>2026-07-05</lastmod>
         <changefreq>weekly</changefreq>
@@ -26,18 +20,6 @@
     </url>
     <url>
         <loc>https://fxnews.app/pairs/</loc>
-        <lastmod>2026-07-05</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.7</priority>
-    </url>
-    <url>
-        <loc>https://fxnews.app/pairs/eur-usd/</loc>
-        <lastmod>2026-07-05</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.7</priority>
-    </url>
-    <url>
-        <loc>https://fxnews.app/pairs/gbp-usd/</loc>
         <lastmod>2026-07-05</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.7</priority>
