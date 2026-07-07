@@ -617,6 +617,26 @@ dd {
     margin-top: 8px;
 }
 
+.legal-section {
+    margin-top: 44px;
+    scroll-margin-top: 96px;
+}
+
+.legal-section-heading {
+    max-width: 760px;
+    margin-bottom: 18px;
+}
+
+.legal-section-heading h2 {
+    margin: 8px 0 10px;
+    font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.legal-section-heading p:not(.eyebrow) {
+    margin-bottom: 0;
+    color: var(--muted);
+}
+
 .legal-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -636,7 +656,8 @@ dd {
     min-height: 150px;
 }
 
-.legal-grid h2 {
+.legal-grid h2,
+.legal-grid h3 {
     margin-bottom: 12px;
     font-size: 1.16rem;
     line-height: 1.16;
