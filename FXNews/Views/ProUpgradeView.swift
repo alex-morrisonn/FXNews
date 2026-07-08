@@ -196,7 +196,7 @@ struct ProUpgradeView: View {
                     activeSubscriptionActions
                 } else {
                     subscriptionReviewSummary
-                    storeKitSubscriptionStore
+                    subscriptionPlanButtons
                     subscriptionLegalFooter
                 }
             }
@@ -260,16 +260,63 @@ struct ProUpgradeView: View {
         }
     }
 
+    @ViewBuilder
+    private var subscriptionPlanButtons: some View {
+        if subscriptionStore.isLoadingProducts {
+            planLoadingMessage
+        } else if subscriptionStore.sortedProducts.isEmpty {
+            unavailablePlansMessage
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Select a plan")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(FXNewsPalette.text)
+
+                ForEach(subscriptionStore.sortedProducts, id: \.id) { product in
+                    subscriptionButton(for: product)
+                }
+            }
+        }
+    }
+
+    private var planLoadingMessage: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .tint(FXNewsPalette.accent)
+
+            Text("Loading current App Store plans...")
+                .font(.caption)
+                .foregroundStyle(FXNewsPalette.muted)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(FXNewsPalette.surfaceStrong)
+        )
+    }
+
     private var unavailablePlansMessage: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Plans are not available right now.")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(FXNewsPalette.text)
 
-            Text("StoreKit did not return the monthly or yearly subscription products for this build.")
+            Text("StoreKit did not return the FXNews Pro monthly or yearly subscription products for this build. Please make sure the subscriptions are added to this app version in App Store Connect.")
                 .font(.caption)
                 .foregroundStyle(FXNewsPalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(FXNewsPalette.surfaceStrong)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(FXNewsPalette.stroke, lineWidth: 1)
+                }
+        )
     }
 
     @ViewBuilder
