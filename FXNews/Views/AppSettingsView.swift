@@ -582,11 +582,11 @@ struct AppSettingsView: View {
 }
 
 enum AppExternalLinks {
-    static let githubPagesBaseURL = "https://alex-morrisonn.github.io/FXNews"
+    static let websiteBaseURL = "https://fxnews.app"
     static let supportEmailURL = "mailto:fxnews.app@gmail.com?subject=FX%20News%20Support"
-    static let privacyPolicyURL = githubPagesBaseURL + "/privacy.html"
-    static let termsOfServiceURL = githubPagesBaseURL + "/terms.html"
-    static let supportURL = githubPagesBaseURL + "/support.html"
+    static let privacyPolicyURL = websiteBaseURL + "/privacy.html"
+    static let termsOfServiceURL = websiteBaseURL + "/terms.html"
+    static let supportURL = websiteBaseURL + "/support.html"
 }
 
 #Preview {

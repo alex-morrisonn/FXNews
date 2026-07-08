@@ -195,7 +195,9 @@ struct ProUpgradeView: View {
                 if subscriptionStore.hasProAccess {
                     activeSubscriptionActions
                 } else {
+                    subscriptionReviewSummary
                     storeKitSubscriptionStore
+                    subscriptionLegalFooter
                 }
             }
         }
@@ -220,6 +222,44 @@ struct ProUpgradeView: View {
         }
     }
 
+    private var subscriptionReviewSummary: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Auto-renewable subscription")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FXNewsPalette.text)
+
+            VStack(alignment: .leading, spacing: 8) {
+                reviewSummaryRow("Choose FXNews Pro Monthly or FXNews Pro Yearly below.")
+                reviewSummaryRow("The StoreKit plan buttons show the current App Store price and renewal period before purchase.")
+                reviewSummaryRow("Pro unlocks custom event alerts, session reminders, saved filter presets, startup page selection, and advanced pair impact tools.")
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(FXNewsPalette.surfaceStrong)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(FXNewsPalette.stroke, lineWidth: 1)
+                }
+        )
+    }
+
+    private func reviewSummaryRow(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(FXNewsPalette.success)
+                .padding(.top, 1)
+
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(FXNewsPalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var unavailablePlansMessage: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Plans are not available right now.")
@@ -237,7 +277,17 @@ struct ProUpgradeView: View {
         if let termsURL = URL(string: AppExternalLinks.termsOfServiceURL),
            let privacyURL = URL(string: AppExternalLinks.privacyPolicyURL) {
             SubscriptionStoreView(productIDs: SubscriptionProduct.identifiers) {
-                EmptyView()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Select a plan")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FXNewsPalette.text)
+
+                    Text("Prices and renewal periods are loaded from the App Store and shown on each plan before you subscribe.")
+                        .font(.caption)
+                        .foregroundStyle(FXNewsPalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .subscriptionStorePolicyDestination(url: termsURL, for: .termsOfService)
             .subscriptionStorePolicyDestination(url: privacyURL, for: .privacyPolicy)
@@ -245,6 +295,7 @@ struct ProUpgradeView: View {
             .storeButton(.visible, for: .restorePurchases, .policies)
             .storeButton(.hidden, for: .cancellation)
             .productDescription(.visible)
+            .subscriptionStoreButtonLabel(.multiline)
             .onInAppPurchaseCompletion { product, result in
                 await subscriptionStore.handleStoreKitViewPurchaseCompletion(product: product, result: result)
             }
