@@ -306,6 +306,29 @@ struct ProUpgradeView: View {
                 .font(.caption)
                 .foregroundStyle(FXNewsPalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if !subscriptionStore.unavailableProductIDs.isEmpty {
+                Text("Requested: \(subscriptionStore.unavailableProductIDs.joined(separator: ", "))")
+                    .font(.caption2)
+                    .foregroundStyle(FXNewsPalette.muted)
+                    .textSelection(.enabled)
+            }
+
+            Button {
+                Task {
+                    await subscriptionStore.loadProducts()
+                }
+            } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .font(.caption.weight(.semibold))
+            }
+            .buttonStyle(.bordered)
+            .tint(FXNewsPalette.accent)
+            .disabled(subscriptionStore.isLoadingProducts)
+
+            if let diagnostics = subscriptionStore.productDiagnostics {
+                productDiagnosticsPanel(diagnostics)
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -317,6 +340,49 @@ struct ProUpgradeView: View {
                         .stroke(FXNewsPalette.stroke, lineWidth: 1)
                 }
         )
+    }
+
+    private func productDiagnosticsPanel(_ diagnostics: ProductLoadDiagnostics) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Store diagnostics")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(FXNewsPalette.text)
+
+            diagnosticRow(title: "Bundle", value: diagnostics.bundleIdentifier)
+            diagnosticRow(title: "Storefront", value: diagnostics.storefrontCountryCode)
+            diagnosticRow(title: "Requested", value: diagnostics.requestedProductIDs.joined(separator: ", "))
+            diagnosticRow(title: "StoreKit 2 returned", value: diagnosticListText(diagnostics.storeKitProductIDs))
+            diagnosticRow(title: "Legacy returned", value: diagnosticListText(diagnostics.legacyProductIDs))
+            diagnosticRow(title: "Legacy invalid", value: diagnosticListText(diagnostics.invalidProductIDs))
+
+            if let errorMessage = diagnostics.errorMessage {
+                diagnosticRow(title: "Error", value: errorMessage)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(FXNewsPalette.backgroundBottom.opacity(0.55))
+        )
+    }
+
+    private func diagnosticRow(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(FXNewsPalette.muted)
+
+            Text(value)
+                .font(.caption2)
+                .foregroundStyle(FXNewsPalette.text)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func diagnosticListText(_ values: [String]) -> String {
+        values.isEmpty ? "None" : values.joined(separator: ", ")
     }
 
     @ViewBuilder
