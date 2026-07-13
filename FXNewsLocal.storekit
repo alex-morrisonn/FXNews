@@ -75,7 +75,7 @@
               "locale" : "en_AU"
             }
           ],
-          "productID" : "fxnews.pro.monthly",
+          "productID" : "fxnews.pro.monthly.v2",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "FXNews Pro Monthly",
           "subscriptionGroupID" : "22191851",
@@ -114,7 +114,7 @@
               "locale" : "en_AU"
             }
           ],
-          "productID" : "fxnews.pro.yearly",
+          "productID" : "fxnews.pro.yearly.v2",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "FXNews Pro Yearly",
           "subscriptionGroupID" : "22191851",

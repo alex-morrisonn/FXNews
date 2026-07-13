@@ -111,20 +111,6 @@ struct AppSettingsView: View {
                 }
                 .buttonStyle(.plain)
 
-                #if DEBUG
-                Toggle(isOn: $subscriptionStore.debugOverridesProAccess) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Debug Pro Preview")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(FXNewsPalette.text)
-
-                        Text("Switch between Free and Pro locally without changing StoreKit purchases.")
-                            .font(.caption)
-                            .foregroundStyle(FXNewsPalette.muted)
-                    }
-                }
-                .tint(FXNewsPalette.accent)
-                #endif
             }
         }
     }

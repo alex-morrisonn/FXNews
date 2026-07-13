@@ -1,14 +1,15 @@
 import Foundation
 
 enum SubscriptionProduct: String, CaseIterable, Identifiable {
-    case monthly = "fxnews.pro.monthly"
-    case yearly = "fxnews.pro.yearly"
+    case monthly = "fxnews.pro.monthly.v2"
+    case yearly = "fxnews.pro.yearly.v2"
 
     var id: String { rawValue }
 
     static var identifiers: [String] {
         allCases.map(\.rawValue)
     }
+
 }
 
 enum ProFeature: String, CaseIterable, Identifiable {

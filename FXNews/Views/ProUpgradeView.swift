@@ -196,7 +196,7 @@ struct ProUpgradeView: View {
                     activeSubscriptionActions
                 } else {
                     subscriptionReviewSummary
-                    subscriptionPlanButtons
+                    storeKitSubscriptionStore
                     subscriptionLegalFooter
                 }
             }
@@ -260,42 +260,6 @@ struct ProUpgradeView: View {
         }
     }
 
-    @ViewBuilder
-    private var subscriptionPlanButtons: some View {
-        if subscriptionStore.isLoadingProducts {
-            planLoadingMessage
-        } else if subscriptionStore.sortedProducts.isEmpty {
-            unavailablePlansMessage
-        } else {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Select a plan")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(FXNewsPalette.text)
-
-                ForEach(subscriptionStore.sortedProducts, id: \.id) { product in
-                    subscriptionButton(for: product)
-                }
-            }
-        }
-    }
-
-    private var planLoadingMessage: some View {
-        HStack(spacing: 10) {
-            ProgressView()
-                .tint(FXNewsPalette.accent)
-
-            Text("Loading current App Store plans...")
-                .font(.caption)
-                .foregroundStyle(FXNewsPalette.muted)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(FXNewsPalette.surfaceStrong)
-        )
-    }
-
     private var unavailablePlansMessage: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Plans are not available right now.")
@@ -325,10 +289,6 @@ struct ProUpgradeView: View {
             .buttonStyle(.bordered)
             .tint(FXNewsPalette.accent)
             .disabled(subscriptionStore.isLoadingProducts)
-
-            if let diagnostics = subscriptionStore.productDiagnostics {
-                productDiagnosticsPanel(diagnostics)
-            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -340,49 +300,6 @@ struct ProUpgradeView: View {
                         .stroke(FXNewsPalette.stroke, lineWidth: 1)
                 }
         )
-    }
-
-    private func productDiagnosticsPanel(_ diagnostics: ProductLoadDiagnostics) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Store diagnostics")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(FXNewsPalette.text)
-
-            diagnosticRow(title: "Bundle", value: diagnostics.bundleIdentifier)
-            diagnosticRow(title: "Storefront", value: diagnostics.storefrontCountryCode)
-            diagnosticRow(title: "Requested", value: diagnostics.requestedProductIDs.joined(separator: ", "))
-            diagnosticRow(title: "StoreKit 2 returned", value: diagnosticListText(diagnostics.storeKitProductIDs))
-            diagnosticRow(title: "Legacy returned", value: diagnosticListText(diagnostics.legacyProductIDs))
-            diagnosticRow(title: "Legacy invalid", value: diagnosticListText(diagnostics.invalidProductIDs))
-
-            if let errorMessage = diagnostics.errorMessage {
-                diagnosticRow(title: "Error", value: errorMessage)
-            }
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(FXNewsPalette.backgroundBottom.opacity(0.55))
-        )
-    }
-
-    private func diagnosticRow(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(FXNewsPalette.muted)
-
-            Text(value)
-                .font(.caption2)
-                .foregroundStyle(FXNewsPalette.text)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func diagnosticListText(_ values: [String]) -> String {
-        values.isEmpty ? "None" : values.joined(separator: ", ")
     }
 
     @ViewBuilder
@@ -496,52 +413,6 @@ struct ProUpgradeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func subscriptionButton(for product: Product) -> some View {
-        Button {
-            Task {
-                await subscriptionStore.purchase(product)
-            }
-        } label: {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(product.displayName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
-
-                    Text(product.description)
-                        .font(.caption)
-                        .foregroundStyle(Color.white.opacity(0.82))
-                        .lineLimit(2)
-                }
-
-                Spacer(minLength: 8)
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(product.displayPrice)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(Color.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.80)
-
-                    if let renewalPeriod = renewalPeriodText(for: product) {
-                        Text(renewalPeriod)
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Color.white.opacity(0.82))
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(FXNewsPalette.accent)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
     private var subscriptionLegalFooter: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Subscriptions auto-renew until canceled. Your Apple ID is charged at confirmation of purchase and renewal. You can manage or cancel your subscription in App Store account settings at least 24 hours before the end of the current period.")
@@ -562,33 +433,6 @@ struct ProUpgradeView: View {
             .foregroundStyle(FXNewsPalette.accent)
         }
         .padding(.top, 2)
-    }
-
-    private func renewalPeriodText(for product: Product) -> String? {
-        guard let subscriptionPeriod = product.subscription?.subscriptionPeriod else {
-            return nil
-        }
-
-        return "per \(periodDescription(subscriptionPeriod))"
-    }
-
-    private func periodDescription(_ period: Product.SubscriptionPeriod) -> String {
-        let unitText: String
-
-        switch period.unit {
-        case .day:
-            unitText = period.value == 1 ? "day" : "days"
-        case .week:
-            unitText = period.value == 1 ? "week" : "weeks"
-        case .month:
-            unitText = period.value == 1 ? "month" : "months"
-        case .year:
-            unitText = period.value == 1 ? "year" : "years"
-        @unknown default:
-            unitText = "period"
-        }
-
-        return period.value == 1 ? unitText : "\(period.value) \(unitText)"
     }
 
     private func openExternalLink(_ urlString: String) {
