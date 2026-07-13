@@ -38,13 +38,19 @@ enum SessionNotificationTiming: String {
 enum SessionNotificationStore {
     private static let prefix = "fxnews.sessions."
 
-    static func resyncEnabledNotifications(preferences: UserPreferences) async {
+    static func resyncEnabledNotifications(preferences: UserPreferences, hasProAccess: Bool) async {
+        let existingIdentifiers = await pendingIdentifiers()
+        let sessionIdentifiers = existingIdentifiers.filter { $0.hasPrefix(prefix) }
+
+        guard hasProAccess else {
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: sessionIdentifiers)
+            return
+        }
+
         guard await NotificationAuthorizationStore.canScheduleNotificationsWithoutPrompt() else {
             return
         }
 
-        let existingIdentifiers = await pendingIdentifiers()
-        let sessionIdentifiers = existingIdentifiers.filter { $0.hasPrefix(prefix) }
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: sessionIdentifiers)
 
         if preferences.sydneySessionNotificationsEnabled {

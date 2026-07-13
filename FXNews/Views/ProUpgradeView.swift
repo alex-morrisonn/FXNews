@@ -8,14 +8,15 @@ struct ProUpgradeView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var isShowingManageSubscriptions = false
+    @State private var purchasingProductID: String?
+    @State private var isRestoringPurchases = false
 
     var body: some View {
         ScrollView {
             FXNewsScreen {
                 VStack(alignment: .leading, spacing: 16) {
                     heroSection
-                    workflowHighlights
-                    allProFeatures
+                    essentialsCard
                     subscriptionOptionsCard
                 }
             }
@@ -49,7 +50,7 @@ struct ProUpgradeView: View {
     }
 
     private var heroSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 10) {
                 Text("FXNEWS PRO")
                     .font(.caption.weight(.semibold))
@@ -61,146 +62,91 @@ struct ProUpgradeView: View {
                 }
             }
 
-            Text(subscriptionStore.hasProAccess ? "Your trading desk is unlocked" : "Turn the calendar into a trading desk")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+            Text(subscriptionStore.hasProAccess ? "Pro is active" : "Upgrade for smarter alerts")
+                .font(.system(size: 30, weight: .bold, design: .rounded))
                 .foregroundStyle(FXNewsPalette.text)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(subscriptionStore.hasProAccess
-                ? "Manage your subscription, keep alerts synced, and use every Pro workflow across FX News."
-                : "Keep the core calendar free. Upgrade when you want tailored alerts, session reminders, pair prioritisation, and saved workflows.")
+                ? "Your alerts, saved workflows, and pair tools are unlocked on this Apple ID."
+                : "Keep the free calendar. Add Pro when you want custom reminders, saved setups, and clearer pair impact.")
                 .font(.subheadline)
                 .foregroundStyle(FXNewsPalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
-
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    proMetric(title: "Features", value: "6")
-                    proMetric(title: "Alerts", value: "Custom")
-                    proMetric(title: "Pairs", value: "Ranked")
-                }
-
-                VStack(spacing: 8) {
-                    proMetric(title: "Features", value: "6")
-                    proMetric(title: "Alerts", value: "Custom")
-                    proMetric(title: "Pairs", value: "Ranked")
-                }
-            }
         }
-        .padding(18)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(FXNewsPalette.surface)
-                .overlay(alignment: .topTrailing) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 42, weight: .semibold))
-                        .foregroundStyle(FXNewsPalette.accent.opacity(0.20))
-                        .padding(20)
-                }
                 .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(FXNewsPalette.stroke, lineWidth: 1)
                 }
         )
     }
 
-    private var workflowHighlights: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Built for repeatable trading routines")
-                .font(.headline)
-                .foregroundStyle(FXNewsPalette.text)
-
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
-                    workflowPillar(
-                        icon: "bell.badge.fill",
-                        title: "Alert only what matters",
-                        subtitle: "Tune lead times, quiet hours, and one-off reminders."
-                    )
-                    workflowPillar(
-                        icon: "clock.badge.checkmark.fill",
-                        title: "Never miss a session",
-                        subtitle: "Get warnings before major market opens."
-                    )
-                    workflowPillar(
-                        icon: "chart.line.uptrend.xyaxis",
-                        title: "Rank your pairs",
-                        subtitle: "Spot shared-currency risk and priority setups."
-                    )
-                }
-
-                VStack(spacing: 10) {
-                    workflowPillar(
-                        icon: "bell.badge.fill",
-                        title: "Alert only what matters",
-                        subtitle: "Tune lead times, quiet hours, and one-off reminders."
-                    )
-                    workflowPillar(
-                        icon: "clock.badge.checkmark.fill",
-                        title: "Never miss a session",
-                        subtitle: "Get warnings before major market opens."
-                    )
-                    workflowPillar(
-                        icon: "chart.line.uptrend.xyaxis",
-                        title: "Rank your pairs",
-                        subtitle: "Spot shared-currency risk and priority setups."
-                    )
-                }
-            }
-        }
-    }
-
-    private var allProFeatures: some View {
+    private var essentialsCard: some View {
         FXNewsCard {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Everything in Pro")
-                        .font(.headline)
-                        .foregroundStyle(FXNewsPalette.text)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("What Pro adds")
+                    .font(.headline)
+                    .foregroundStyle(FXNewsPalette.text)
 
-                    Spacer()
-
-                    Text("6 tools")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(FXNewsPalette.accent)
-                }
-
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(ProFeature.allCases) { feature in
-                        proFeatureTile(feature)
-                    }
+                VStack(alignment: .leading, spacing: 12) {
+                    essentialBenefit(
+                        icon: "bell.badge.fill",
+                        title: "Custom alerts",
+                        detail: "Choose the events, impact levels, and reminder timing you care about."
+                    )
+                    essentialBenefit(
+                        icon: "line.3.horizontal.decrease.circle.fill",
+                        title: "Saved setups",
+                        detail: "Save your preferred filters and startup page for faster daily checks."
+                    )
+                    essentialBenefit(
+                        icon: "chart.line.uptrend.xyaxis",
+                        title: "Pair impact",
+                        detail: "See which watched pairs have the most upcoming macro pressure."
+                    )
                 }
             }
         }
     }
 
     private var subscriptionOptionsCard: some View {
-        FXNewsCard {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(subscriptionStore.hasProAccess ? "Subscription" : "Choose your plan")
-                        .font(.headline)
-                        .foregroundStyle(FXNewsPalette.text)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(subscriptionStore.hasProAccess ? "Subscription" : "Choose your plan")
+                    .font(.headline)
+                    .foregroundStyle(FXNewsPalette.text)
 
-                    Spacer()
-
-                    if subscriptionStore.hasProAccess {
-                        Text("Active")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(FXNewsPalette.success)
-                    }
-                }
+                Spacer()
 
                 if subscriptionStore.hasProAccess {
-                    activeSubscriptionActions
-                } else {
-                    subscriptionReviewSummary
-                    storeKitSubscriptionStore
-                    subscriptionLegalFooter
+                    Text("Active")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FXNewsPalette.success)
                 }
             }
+
+            if subscriptionStore.hasProAccess {
+                activeSubscriptionActions
+            } else {
+                storeKitSubscriptionStore
+                subscriptionLegalFooter
+            }
         }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(FXNewsPalette.surface)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(FXNewsPalette.stroke, lineWidth: 1)
+                }
+        )
     }
 
     private var activeSubscriptionActions: some View {
@@ -219,44 +165,6 @@ struct ProUpgradeView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(FXNewsPalette.accent)
-        }
-    }
-
-    private var subscriptionReviewSummary: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Auto-renewable subscription")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(FXNewsPalette.text)
-
-            VStack(alignment: .leading, spacing: 8) {
-                reviewSummaryRow("Choose FXNews Pro Monthly or FXNews Pro Yearly below.")
-                reviewSummaryRow("The StoreKit plan buttons show the current App Store price and renewal period before purchase.")
-                reviewSummaryRow("Pro unlocks custom event alerts, session reminders, saved filter presets, startup page selection, and advanced pair impact tools.")
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(FXNewsPalette.surfaceStrong)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(FXNewsPalette.stroke, lineWidth: 1)
-                }
-        )
-    }
-
-    private func reviewSummaryRow(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(FXNewsPalette.success)
-                .padding(.top, 1)
-
-            Text(text)
-                .font(.caption)
-                .foregroundStyle(FXNewsPalette.muted)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -304,91 +212,158 @@ struct ProUpgradeView: View {
 
     @ViewBuilder
     private var storeKitSubscriptionStore: some View {
-        if let termsURL = URL(string: AppExternalLinks.termsOfServiceURL),
-           let privacyURL = URL(string: AppExternalLinks.privacyPolicyURL) {
-            SubscriptionStoreView(productIDs: SubscriptionProduct.identifiers) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Select a plan")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(FXNewsPalette.text)
-
-                    Text("Prices and renewal periods are loaded from the App Store and shown on each plan before you subscribe.")
-                        .font(.caption)
-                        .foregroundStyle(FXNewsPalette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .subscriptionStorePolicyDestination(url: termsURL, for: .termsOfService)
-            .subscriptionStorePolicyDestination(url: privacyURL, for: .privacyPolicy)
-            .subscriptionStorePolicyForegroundStyle(FXNewsPalette.accent, FXNewsPalette.muted)
-            .storeButton(.visible, for: .restorePurchases, .policies)
-            .storeButton(.hidden, for: .cancellation)
-            .productDescription(.visible)
-            .subscriptionStoreButtonLabel(.multiline)
-            .onInAppPurchaseCompletion { product, result in
-                await subscriptionStore.handleStoreKitViewPurchaseCompletion(product: product, result: result)
-            }
-        } else {
+        if subscriptionStore.isLoadingProducts && subscriptionStore.sortedProducts.isEmpty {
+            loadingPlansMessage
+        } else if subscriptionStore.sortedProducts.isEmpty {
             unavailablePlansMessage
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Select a plan")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(FXNewsPalette.muted)
+
+                VStack(spacing: 8) {
+                    ForEach(subscriptionStore.sortedProducts) { product in
+                        subscriptionPlanButton(for: product)
+                    }
+                }
+
+                restorePurchasesButton
+            }
         }
     }
 
-    private func proMetric(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title.uppercased())
-                .font(.caption2.weight(.semibold))
-                .tracking(0.8)
-                .foregroundStyle(FXNewsPalette.muted)
+    private var loadingPlansMessage: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .tint(FXNewsPalette.accent)
 
-            Text(value)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(FXNewsPalette.text)
+            Text("Loading plans...")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(FXNewsPalette.muted)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(FXNewsPalette.surfaceStrong)
         )
     }
 
-    private func workflowPillar(icon: String, title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.headline)
-                .foregroundStyle(FXNewsPalette.accent)
-                .frame(width: 30, height: 30)
-                .background(
-                    Circle()
-                        .fill(FXNewsPalette.accentSoft)
-                )
+    private func subscriptionPlanButton(for product: Product) -> some View {
+        Button {
+            Task {
+                purchasingProductID = product.id
+                await subscriptionStore.purchase(product)
+                purchasingProductID = nil
+            }
+        } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(planTitle(for: product))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FXNewsPalette.text)
+                        .fixedSize(horizontal: false, vertical: true)
 
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(FXNewsPalette.text)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(subtitle)
-                .font(.caption)
-                .foregroundStyle(FXNewsPalette.muted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(FXNewsPalette.surface)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(FXNewsPalette.stroke, lineWidth: 1)
+                    Text("\(product.displayPrice) / \(subscriptionPeriodText(for: product))")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(FXNewsPalette.muted)
                 }
-        )
+
+                Spacer(minLength: 12)
+
+                if purchasingProductID == product.id {
+                    ProgressView()
+                        .tint(.white)
+                        .frame(width: 22, height: 22)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 22, height: 22)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(FXNewsPalette.surfaceStrong)
+                    .overlay(alignment: .trailing) {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(FXNewsPalette.accent)
+                            .frame(width: 46)
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(FXNewsPalette.stroke, lineWidth: 1)
+                    }
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(purchasingProductID != nil || isRestoringPurchases)
     }
 
-    private func proFeatureTile(_ feature: ProFeature) -> some View {
+    private var restorePurchasesButton: some View {
+        Button {
+            Task {
+                isRestoringPurchases = true
+                await subscriptionStore.restorePurchases()
+                isRestoringPurchases = false
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if isRestoringPurchases {
+                    ProgressView()
+                        .tint(FXNewsPalette.accent)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+
+                Text("Restore purchases")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(FXNewsPalette.accent)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(FXNewsPalette.stroke, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(purchasingProductID != nil || isRestoringPurchases)
+    }
+
+    private func planTitle(for product: Product) -> String {
+        product.displayName
+    }
+
+    private func subscriptionPeriodText(for product: Product) -> String {
+        guard let period = product.subscription?.subscriptionPeriod else {
+            return "subscription"
+        }
+
+        let unit: String
+        switch period.unit {
+        case .day:
+            unit = period.value == 1 ? "day" : "\(period.value) days"
+        case .week:
+            unit = period.value == 1 ? "week" : "\(period.value) weeks"
+        case .month:
+            unit = period.value == 1 ? "month" : "\(period.value) months"
+        case .year:
+            unit = period.value == 1 ? "year" : "\(period.value) years"
+        @unknown default:
+            unit = "period"
+        }
+
+        return unit
+    }
+
+    private func essentialBenefit(icon: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: feature.iconName)
+            Image(systemName: icon)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(FXNewsPalette.accent)
                 .frame(width: 28, height: 28)
@@ -398,12 +373,12 @@ struct ProUpgradeView: View {
                 )
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(feature.title)
+                Text(title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(FXNewsPalette.text)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text(feature.description)
+                Text(detail)
                     .font(.caption)
                     .foregroundStyle(FXNewsPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -414,13 +389,13 @@ struct ProUpgradeView: View {
     }
 
     private var subscriptionLegalFooter: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Subscriptions auto-renew until canceled. Your Apple ID is charged at confirmation of purchase and renewal. You can manage or cancel your subscription in App Store account settings at least 24 hours before the end of the current period.")
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(FXNewsPalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button("Terms of Service") {
                     openExternalLink(AppExternalLinks.termsOfServiceURL)
                 }
@@ -429,10 +404,9 @@ struct ProUpgradeView: View {
                     openExternalLink(AppExternalLinks.privacyPolicyURL)
                 }
             }
-            .font(.caption.weight(.semibold))
+            .font(.caption2.weight(.semibold))
             .foregroundStyle(FXNewsPalette.accent)
         }
-        .padding(.top, 2)
     }
 
     private func openExternalLink(_ urlString: String) {
@@ -449,25 +423,6 @@ struct ProUpgradeView: View {
                 }
             }
         )
-    }
-}
-
-private extension ProFeature {
-    var iconName: String {
-        switch self {
-        case .customEventAlerts:
-            "bell.badge.fill"
-        case .sessionOpenAlerts:
-            "clock.badge.checkmark.fill"
-        case .filterPresets:
-            "line.3.horizontal.decrease.circle.fill"
-        case .startupPage:
-            "rectangle.stack.badge.play.fill"
-        case .pairImpactWorkspace:
-            "rectangle.3.group.fill"
-        case .advancedPairImpact:
-            "chart.line.uptrend.xyaxis"
-        }
     }
 }
 

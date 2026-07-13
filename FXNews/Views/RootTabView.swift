@@ -99,7 +99,10 @@ struct RootTabView: View {
                 preferences: preferences,
                 hasProAccess: subscriptionStore.hasProAccess
             )
-            await SessionNotificationStore.resyncEnabledNotifications(preferences: preferences)
+            await SessionNotificationStore.resyncEnabledNotifications(
+                preferences: preferences,
+                hasProAccess: subscriptionStore.hasProAccess
+            )
         }
         .safeAreaInset(edge: .bottom) {
             FloatingTabBar(selectedTab: $navigationState.selectedTab)
