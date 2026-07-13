@@ -15,6 +15,7 @@ final class SubscriptionStore {
 
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FXNews", category: "SubscriptionStore")
     private var updatesTask: Task<Void, Never>?
+    private var storefrontUpdatesTask: Task<Void, Never>?
 
     var hasProAccess: Bool {
         !purchasedProductIDs.isDisjoint(with: Set(SubscriptionProduct.identifiers))
@@ -30,6 +31,7 @@ final class SubscriptionStore {
 
     init() {
         updatesTask = listenForTransactions()
+        storefrontUpdatesTask = listenForStorefrontChanges()
     }
 
     func load() async {
@@ -142,6 +144,15 @@ final class SubscriptionStore {
                 }
 
                 await self.refreshEntitlements()
+            }
+        }
+    }
+
+    private func listenForStorefrontChanges() -> Task<Void, Never> {
+        Task { [weak self] in
+            for await _ in Storefront.updates {
+                guard let self else { return }
+                await self.loadProducts()
             }
         }
     }

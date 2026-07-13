@@ -3,7 +3,7 @@
     "eula" : "",
     "policies" : [
       {
-        "locale" : "en_US",
+        "locale" : "en_AU",
         "policyText" : "",
         "policyURL" : ""
       }
@@ -25,9 +25,9 @@
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
     "_lastSynchronizedDate" : 804412964.99889004,
-    "_locale" : "en_US",
+    "_locale" : "en_AU",
     "_renewalBillingIssuesEnabled" : false,
-    "_storefront" : "USA",
+    "_storefront" : "AUS",
     "_storeKitErrors" : [
 
     ],
@@ -52,8 +52,8 @@
           "billingPlans" : [
             {
               "billingPlanType" : "BILLED_UPFRONT",
-              "commitmentDisplayPrice" : "2.99",
-              "displayPrice" : "2.99",
+              "commitmentDisplayPrice" : "4.99",
+              "displayPrice" : "4.99",
               "internalID" : "6784939973_BILLED_UPFRONT",
               "isEnabled" : true
             }
@@ -61,7 +61,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "2.99",
+          "displayPrice" : "4.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "6784939973",
@@ -91,8 +91,8 @@
           "billingPlans" : [
             {
               "billingPlanType" : "BILLED_UPFRONT",
-              "commitmentDisplayPrice" : "24.99",
-              "displayPrice" : "24.99",
+              "commitmentDisplayPrice" : "39.99",
+              "displayPrice" : "39.99",
               "internalID" : "6785112467_BILLED_UPFRONT",
               "isEnabled" : true
             }
@@ -100,7 +100,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "24.99",
+          "displayPrice" : "39.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6785112467",
