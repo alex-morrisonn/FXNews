@@ -96,6 +96,58 @@ struct EconomicEventDecodingTests {
     }
 
     @Test
+    func eventDecodingTrimsOptionalTextAndGeneratesStableIDWhenMissing() throws {
+        let json = """
+        {
+          "title": "  Fed Chair Speech  ",
+          "country": " usd ",
+          "date": "2026-04-29T14:00:00-04:00",
+          "impact": "Medium",
+          "forecast": "   ",
+          "previous": " 1.2% ",
+          "actual": "",
+          "category": " Central Bank "
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let event = try decoder.decode(EconomicEvent.self, from: try #require(json.data(using: .utf8)))
+
+        #expect(event.id == "usd-2026-04-29T18:00:00Z-fed-chair-speech")
+        #expect(event.title == "  Fed Chair Speech  ")
+        #expect(event.currencyCode == "USD")
+        #expect(event.countryCode == "US")
+        #expect(event.impactLevel == .medium)
+        #expect(event.forecast == nil)
+        #expect(event.previous == "1.2%")
+        #expect(event.actual == nil)
+        #expect(event.category == "Central Bank")
+        #expect(event.relatedPairs == ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"])
+        #expect(event.hasNumericContext)
+    }
+
+    @Test
+    func eventDecodingUsesCurrencyFallbackCountryForUnknownCurrency() throws {
+        let json = """
+        {
+          "title": "Gold Volatility",
+          "currency": "XAU",
+          "timestamp": "2026-04-29T18:00:00Z",
+          "impact": "low"
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let event = try decoder.decode(EconomicEvent.self, from: try #require(json.data(using: .utf8)))
+
+        #expect(event.currencyCode == "XAU")
+        #expect(event.countryCode == "XA")
+        #expect(event.relatedPairs.isEmpty)
+    }
+
+    @Test
     func calendarDayDisplayOrderPrioritizesHolidaysBeforeTimedEvents() throws {
         let formatter = ISO8601DateFormatter()
         let holiday = EconomicEvent(

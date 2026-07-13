@@ -120,6 +120,107 @@ struct RemoteCalendarServiceTests {
         #expect(result.lastUpdated == lastUpdated)
     }
 
+    @Test
+    func fetchUsesFreshCacheForRepeatedWeekRequests() async throws {
+        let session = makeSession()
+        let formatter = ISO8601DateFormatter()
+        let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
+        let weekEnd = try #require(formatter.date(from: "2026-04-20T00:00:00Z"))
+
+        MockURLProtocol.reset()
+        MockURLProtocol.responseData = responseData(
+            weekOf: "2026-04-13",
+            lastUpdated: "2026-04-13T06:00:00Z",
+            eventID: "cached-event",
+            title: "Cached Event",
+            timestamp: "2026-04-14T12:30:00Z"
+        )
+
+        let service = RemoteCalendarService(
+            session: session,
+            calendarBaseURL: URL(string: "https://api.example.com/calendar/")!
+        )
+
+        let firstResult = try await service.fetchEvents(from: weekStart, to: weekEnd)
+
+        MockURLProtocol.responseData = responseData(
+            weekOf: "2026-04-13",
+            lastUpdated: "2026-04-13T07:00:00Z",
+            eventID: "network-event",
+            title: "Network Event",
+            timestamp: "2026-04-15T12:30:00Z"
+        )
+
+        let secondResult = try await service.fetchEvents(from: weekStart, to: weekEnd)
+
+        #expect(MockURLProtocol.requestCount == 1)
+        #expect(firstResult.source == .remote)
+        #expect(secondResult.source == .cache)
+        #expect(secondResult.isFallback == false)
+        #expect(secondResult.events.map(\.id) == ["cached-event"])
+    }
+
+    @Test
+    func remoteFailureFallsBackToCachedResponse() async throws {
+        let session = makeSession()
+        let formatter = ISO8601DateFormatter()
+        let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
+        let weekEnd = try #require(formatter.date(from: "2026-04-20T00:00:00Z"))
+
+        MockURLProtocol.reset()
+        MockURLProtocol.responseData = responseData(
+            weekOf: "2026-04-13",
+            lastUpdated: "2026-04-13T06:00:00Z",
+            eventID: "stable-cache",
+            title: "Stable Cache",
+            timestamp: "2026-04-14T12:30:00Z"
+        )
+
+        let service = RemoteCalendarService(
+            session: session,
+            calendarBaseURL: URL(string: "https://api.example.com/calendar/")!
+        )
+
+        _ = try await service.refreshEvents(from: weekStart, to: weekEnd)
+
+        MockURLProtocol.statusCode = 503
+        MockURLProtocol.responseData = Data()
+
+        let fallbackResult = try await service.refreshEvents(from: weekStart, to: weekEnd)
+
+        #expect(MockURLProtocol.requestCount == 2)
+        #expect(fallbackResult.source == .cache)
+        #expect(fallbackResult.isFallback)
+        #expect(fallbackResult.events.map(\.id) == ["stable-cache"])
+    }
+
+    @Test
+    func fetchFiltersOutEventsAtEndBoundary() async throws {
+        let session = makeSession()
+        let formatter = ISO8601DateFormatter()
+        let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
+        let weekEnd = try #require(formatter.date(from: "2026-04-20T00:00:00Z"))
+
+        MockURLProtocol.reset()
+        MockURLProtocol.responseData = responseData(
+            weekOf: "2026-04-13",
+            lastUpdated: "2026-04-13T06:00:00Z",
+            events: [
+                ("inside", "Inside Event", "2026-04-19T23:59:59Z"),
+                ("boundary", "Boundary Event", "2026-04-20T00:00:00Z")
+            ]
+        )
+
+        let service = RemoteCalendarService(
+            session: session,
+            calendarBaseURL: URL(string: "https://api.example.com/calendar/")!
+        )
+
+        let result = try await service.fetchEvents(from: weekStart, to: weekEnd)
+
+        #expect(result.events.map(\.id) == ["inside"])
+    }
+
     private func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -133,17 +234,26 @@ struct RemoteCalendarServiceTests {
         title: String,
         timestamp: String
     ) -> Data {
-        """
-        {
-          "weekOf": "\(weekOf)",
-          "lastUpdated": "\(lastUpdated)",
-          "events": [
+        responseData(
+            weekOf: weekOf,
+            lastUpdated: lastUpdated,
+            events: [(eventID, title, timestamp)]
+        )
+    }
+
+    private func responseData(
+        weekOf: String,
+        lastUpdated: String,
+        events: [(id: String, title: String, timestamp: String)]
+    ) -> Data {
+        let eventJSON = events.map { event in
+            """
             {
-              "id": "\(eventID)",
-              "title": "\(title)",
+              "id": "\(event.id)",
+              "title": "\(event.title)",
               "country": "US",
               "currency": "USD",
-              "timestamp": "\(timestamp)",
+              "timestamp": "\(event.timestamp)",
               "impact": "high",
               "forecast": "2.1%",
               "previous": "1.8%",
@@ -151,6 +261,16 @@ struct RemoteCalendarServiceTests {
               "category": "inflation",
               "relatedPairs": ["EURUSD"]
             }
+            """
+        }
+        .joined(separator: ",\n")
+
+        return """
+        {
+          "weekOf": "\(weekOf)",
+          "lastUpdated": "\(lastUpdated)",
+          "events": [
+            \(eventJSON)
           ]
         }
         """.data(using: .utf8) ?? Data()
@@ -159,11 +279,13 @@ struct RemoteCalendarServiceTests {
 
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     static var responseData = Data()
+    static var statusCode = 200
     static var requestCount = 0
     static var lastRequestURL: URL?
 
     static func reset() {
         responseData = Data()
+        statusCode = 200
         requestCount = 0
         lastRequestURL = nil
         try? RemoteCalendarService.clearCache()
@@ -182,7 +304,7 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
         Self.lastRequestURL = request.url
         let response = HTTPURLResponse(
             url: request.url ?? URL(string: "https://example.com")!,
-            statusCode: 200,
+            statusCode: Self.statusCode,
             httpVersion: nil,
             headerFields: ["Content-Type": "application/json"]
         )!

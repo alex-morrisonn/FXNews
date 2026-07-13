@@ -212,6 +212,51 @@ struct CalendarViewModelTests {
         #expect(viewModel.isShowingFallbackData)
         #expect(viewModel.lastRefreshDate == lastUpdated)
     }
+
+    @Test
+    func loadWeekAppliesStableUniqueIDsForDuplicateFeedEvents() async throws {
+        let formatter = ISO8601DateFormatter()
+        let timestamp = try #require(formatter.date(from: "2026-04-14T12:30:00Z"))
+        let first = EconomicEvent(
+            id: "duplicate-id",
+            title: "First",
+            countryCode: "US",
+            currencyCode: "USD",
+            timestamp: timestamp,
+            impactLevel: .high
+        )
+        let second = EconomicEvent(
+            id: "duplicate-id",
+            title: "Second",
+            countryCode: "US",
+            currencyCode: "USD",
+            timestamp: timestamp.addingTimeInterval(60),
+            impactLevel: .medium
+        )
+        let viewModel = CalendarViewModel(service: StubCalendarService(events: [first, second]))
+
+        await viewModel.loadWeek(referenceDate: try #require(formatter.date(from: "2026-04-13T12:00:00Z")))
+
+        #expect(viewModel.events.map(\.id) == ["duplicate-id", "duplicate-id--2"])
+    }
+
+    @Test
+    func refreshReusesCurrentVisibleInterval() async throws {
+        let formatter = ISO8601DateFormatter()
+        let service = RecordingCalendarService()
+        let viewModel = CalendarViewModel(service: service)
+        let referenceDate = try #require(formatter.date(from: "2026-04-13T12:00:00Z"))
+        let tokyo = try #require(TimeZone(identifier: "Asia/Tokyo"))
+
+        await viewModel.loadWeek(referenceDate: referenceDate, timeZone: tokyo)
+        await viewModel.refresh()
+
+        let expectedInterval = Calendar.tradingWeekInterval(referenceDate: referenceDate, timeZone: tokyo)
+        #expect(service.requests.count == 2)
+        #expect(service.requests.last?.start == expectedInterval.start)
+        #expect(service.requests.last?.end == expectedInterval.end)
+        #expect(viewModel.visibleInterval == expectedInterval)
+    }
 }
 
 private struct StubCalendarService: CalendarService {
@@ -277,5 +322,19 @@ private enum CalendarServiceStubError: LocalizedError {
 
     var errorDescription: String? {
         "Calendar data is unavailable."
+    }
+}
+
+private final class RecordingCalendarService: CalendarService, @unchecked Sendable {
+    private(set) var requests: [(start: Date, end: Date)] = []
+
+    func fetchEvents(from startDate: Date, to endDate: Date) async throws -> CalendarFetchResult {
+        requests.append((startDate, endDate))
+        return CalendarFetchResult(
+            events: [],
+            source: .remote,
+            lastUpdated: Date(timeIntervalSince1970: 0),
+            isFallback: false
+        )
     }
 }

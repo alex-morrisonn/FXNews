@@ -68,12 +68,7 @@
 				1EC75FBA2F90E1C2003B6F09 /* FXNews */,
 				1E74B2782F99BA76008AF26C /* FXNewsTests */,
 				1EC75FB92F90E1C2003B6F09 /* Products */,
-				1EC75FC62F90E296003B6F09 /* Models */,
-				1EC75FC72F90E296003B6F09 /* Services */,
-				1EC75FC82F90E296003B6F09 /* Views */,
-				1EC75FC92F90E296003B6F09 /* ViewModels */,
 				1EC75FCA2F90E296003B6F09 /* Utilities */,
-				1EC75FF22F9217C8003B6F09 /* SampleData */,
 				1ECC50092FF25D2D00FD05B5 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -87,47 +82,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		1EC75FC62F90E296003B6F09 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		1EC75FC72F90E296003B6F09 /* Services */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Services;
-			sourceTree = "<group>";
-		};
-		1EC75FC82F90E296003B6F09 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
-		1EC75FC92F90E296003B6F09 /* ViewModels */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = ViewModels;
-			sourceTree = "<group>";
-		};
 		1EC75FCA2F90E296003B6F09 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
 				1E8763BF2F94D086001B4284 /* NotificationAuthorizationStore.swift */,
 			);
 			path = Utilities;
-			sourceTree = "<group>";
-		};
-		1EC75FF22F9217C8003B6F09 /* SampleData */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = SampleData;
 			sourceTree = "<group>";
 		};
 		1ECC50092FF25D2D00FD05B5 /* Frameworks */ = {
@@ -440,7 +400,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = 9282G9F23C;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -476,7 +436,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = 9282G9F23C;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;

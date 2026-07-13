@@ -58,6 +58,45 @@ struct UserPreferencesTests {
     }
 
     @Test
+    func invalidStoredEnumValuesFallBackToLaunchSafeDefaults() {
+        let defaults = makeDefaults()
+        defaults.set("severe", forKey: "preferences.minimumImpact")
+        defaults.set("sepia", forKey: "preferences.preferredAppearance")
+        defaults.set("analytics", forKey: "preferences.startupTab")
+        defaults.set("critical", forKey: "preferences.notificationSoundOption")
+
+        let preferences = UserPreferences(defaults: defaults)
+
+        #expect(preferences.minimumImpact == .low)
+        #expect(preferences.preferredAppearance == .dark)
+        #expect(preferences.startupTab == .today)
+        #expect(preferences.notificationSoundOption == .subtle)
+    }
+
+    @Test
+    func legacySingleCurrencyFilterMigratesWhenMultiCurrencyFilterIsMissing() {
+        let defaults = makeDefaults()
+        defaults.set("USD", forKey: "preferences.selectedCurrencyCode")
+
+        let preferences = UserPreferences(defaults: defaults)
+
+        #expect(preferences.selectedCurrencyCodes == ["USD"])
+        #expect(preferences.selectedCurrencyCode == "USD")
+    }
+
+    @Test
+    func multiCurrencyFilterTakesPrecedenceOverLegacySingleCurrencyFilter() {
+        let defaults = makeDefaults()
+        defaults.set("USD", forKey: "preferences.selectedCurrencyCode")
+        defaults.set(["JPY", "EUR"], forKey: "preferences.selectedCurrencyCodes")
+
+        let preferences = UserPreferences(defaults: defaults)
+
+        #expect(preferences.selectedCurrencyCodes == ["EUR", "JPY"])
+        #expect(preferences.selectedCurrencyCode == "EUR")
+    }
+
+    @Test
     func calendarFilterPresetsPersistApplyAndDelete() throws {
         let defaults = makeDefaults()
         let preferences = UserPreferences(defaults: defaults)
@@ -116,6 +155,52 @@ struct UserPreferencesTests {
         restored.selectedCurrencyCodes = ["USD"]
         restored.applyCalendarFilterPreset(preset)
         #expect(restored.selectedCurrencyCodes == ["EUR"])
+    }
+
+    @Test
+    func calendarFilterPresetNamesAreTrimmedRejectedWhenBlankAndCappedAtTwelve() throws {
+        let preferences = UserPreferences(defaults: makeDefaults())
+
+        #expect(preferences.saveCurrentCalendarFilterPreset(named: "   ") == nil)
+
+        for index in 1...13 {
+            preferences.selectedCurrencyCodes = ["USD"]
+            preferences.saveCurrentCalendarFilterPreset(named: " Preset \(index) ")
+        }
+
+        #expect(preferences.calendarFilterPresets.count == 12)
+        #expect(preferences.calendarFilterPresets.first?.name == "Preset 13")
+        #expect(preferences.calendarFilterPresets.last?.name == "Preset 2")
+        #expect(!preferences.calendarFilterPresets.contains { $0.name == "Preset 1" })
+    }
+
+    @Test
+    func legacyCalendarFilterPresetDecodesSingleCurrencyCode() throws {
+        let id = UUID()
+        let data = try #require(
+            """
+            [
+              {
+                "id": "\(id.uuidString)",
+                "name": "Legacy USD",
+                "minimumImpact": "high",
+                "selectedCurrencyCode": "USD",
+                "selectedCountryCode": "US",
+                "selectedCategory": "Labor",
+                "showOnlyWatchedPairs": true
+              }
+            ]
+            """.data(using: .utf8)
+        )
+        let defaults = makeDefaults()
+        defaults.set(data, forKey: "preferences.calendarFilterPresets")
+
+        let preferences = UserPreferences(defaults: defaults)
+        let preset = try #require(preferences.calendarFilterPresets.first)
+
+        #expect(preset.id == id)
+        #expect(preset.selectedCurrencyCodes == ["USD"])
+        #expect(preset.summary.contains("USD"))
     }
 
     @Test
@@ -212,6 +297,52 @@ struct UserPreferencesTests {
         #expect(!preferences.sydneySessionOpenNotificationsEnabled)
         #expect(!preferences.tokyoSessionOpenNotificationsEnabled)
         #expect(preferences.hasCompletedOnboarding)
+    }
+
+    @Test
+    func resetPersistsLaunchSafeDefaultsAcrossPreferenceInstances() {
+        let defaults = makeDefaults()
+        let preferences = UserPreferences(defaults: defaults)
+        preferences.minimumImpact = .high
+        preferences.selectedCurrencyCodes = ["EUR", "USD"]
+        preferences.selectedCountryCode = "US"
+        preferences.selectedCategory = "Labor"
+        preferences.startupTab = .calendar
+        preferences.calendarFilterPresets = [
+            CalendarFilterPreset(
+                name: "Macro",
+                minimumImpact: .high,
+                selectedCurrencyCodes: ["USD"],
+                selectedCountryCode: nil,
+                selectedCategory: nil,
+                showOnlyWatchedPairs: false
+            )
+        ]
+        preferences.hasCompletedOnboarding = true
+
+        preferences.reset()
+        let restored = UserPreferences(defaults: defaults)
+
+        #expect(restored.minimumImpact == .low)
+        #expect(restored.selectedCurrencyCodes.isEmpty)
+        #expect(restored.selectedCountryCode == nil)
+        #expect(restored.selectedCategory == nil)
+        #expect(restored.startupTab == .today)
+        #expect(restored.calendarFilterPresets.isEmpty)
+        #expect(restored.hasCompletedOnboarding)
+    }
+
+    @Test
+    func firstLaunchDateIsCreatedOnceAndNotOverwritten() throws {
+        let defaults = makeDefaults()
+        let firstLaunchDate = Date(timeIntervalSince1970: 1_700_000_000)
+        defaults.set(firstLaunchDate, forKey: "preferences.firstLaunchDate")
+
+        let preferences = UserPreferences(defaults: defaults)
+        let restored = UserPreferences(defaults: defaults)
+
+        #expect(preferences.firstLaunchDate == firstLaunchDate)
+        #expect(restored.firstLaunchDate == firstLaunchDate)
     }
 
     @Test
