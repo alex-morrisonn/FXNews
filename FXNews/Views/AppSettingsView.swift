@@ -426,8 +426,7 @@ struct AppSettingsView: View {
     }
 
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.3.2"
-        return version
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
     }
 
     private var dataSourceLabel: String {
@@ -436,8 +435,6 @@ struct AppSettingsView: View {
             "Live remote feed"
         case .cache:
             viewModel.isShowingFallbackData ? "Cached fallback data" : "Local cache"
-        case .bundled:
-            "Bundled sample feed"
         case nil:
             "Not loaded yet"
         }

@@ -6,8 +6,30 @@ enum SubscriptionProduct: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    var usdDisplayPrice: String {
+        switch self {
+        case .monthly:
+            "$4.99 USD"
+        case .yearly:
+            "$39.99 USD"
+        }
+    }
+
+    var periodText: String {
+        switch self {
+        case .monthly:
+            "month"
+        case .yearly:
+            "year"
+        }
+    }
+
     static var identifiers: [String] {
         allCases.map(\.rawValue)
+    }
+
+    static func product(for identifier: String) -> SubscriptionProduct? {
+        allCases.first { $0.rawValue == identifier }
     }
 
 }

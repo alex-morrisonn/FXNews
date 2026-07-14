@@ -195,6 +195,32 @@ struct RemoteCalendarServiceTests {
     }
 
     @Test
+    func remoteFailureWithoutCacheThrowsRequestError() async throws {
+        let session = makeSession()
+        let formatter = ISO8601DateFormatter()
+        let weekStart = try #require(formatter.date(from: "2026-04-13T00:00:00Z"))
+        let weekEnd = try #require(formatter.date(from: "2026-04-20T00:00:00Z"))
+
+        MockURLProtocol.reset()
+        MockURLProtocol.statusCode = 503
+        MockURLProtocol.responseData = Data()
+
+        let service = RemoteCalendarService(
+            session: session,
+            calendarBaseURL: URL(string: "https://api.example.com/calendar/")!
+        )
+
+        do {
+            _ = try await service.refreshEvents(from: weekStart, to: weekEnd)
+            Issue.record("Expected remote failure to throw when no cache is available.")
+        } catch RemoteCalendarServiceError.requestFailed(let statusCode) {
+            #expect(statusCode == 503)
+        } catch {
+            Issue.record("Expected requestFailed error, got \(error).")
+        }
+    }
+
+    @Test
     func fetchFiltersOutEventsAtEndBoundary() async throws {
         let session = makeSession()
         let formatter = ISO8601DateFormatter()

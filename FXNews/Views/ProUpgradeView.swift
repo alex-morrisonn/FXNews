@@ -130,6 +130,10 @@ struct ProUpgradeView: View {
                 }
             }
 
+            if let statusMessage = subscriptionStore.subscriptionStatusMessage {
+                subscriptionStatusBanner(statusMessage)
+            }
+
             if subscriptionStore.hasProAccess {
                 activeSubscriptionActions
             } else {
@@ -145,6 +149,27 @@ struct ProUpgradeView: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(FXNewsPalette.stroke, lineWidth: 1)
+                }
+        )
+    }
+
+    private func subscriptionStatusBanner(_ message: String) -> some View {
+        Label {
+            Text(message)
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: subscriptionStore.hasSubscriptionBillingIssue ? "exclamationmark.triangle.fill" : "info.circle.fill")
+        }
+        .foregroundStyle(subscriptionStore.hasSubscriptionBillingIssue ? Color.orange.opacity(0.9) : FXNewsPalette.muted)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(subscriptionStore.hasSubscriptionBillingIssue ? Color.orange.opacity(0.12) : FXNewsPalette.surfaceStrong)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(subscriptionStore.hasSubscriptionBillingIssue ? Color.orange.opacity(0.25) : FXNewsPalette.stroke, lineWidth: 1)
                 }
         )
     }
@@ -265,7 +290,7 @@ struct ProUpgradeView: View {
                         .foregroundStyle(FXNewsPalette.text)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text("\(product.displayPrice) / \(subscriptionPeriodText(for: product))")
+                    Text(planPriceText(for: product))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(FXNewsPalette.muted)
                 }
@@ -339,26 +364,12 @@ struct ProUpgradeView: View {
         product.displayName
     }
 
-    private func subscriptionPeriodText(for product: Product) -> String {
-        guard let period = product.subscription?.subscriptionPeriod else {
-            return "subscription"
+    private func planPriceText(for product: Product) -> String {
+        guard let subscriptionProduct = SubscriptionProduct.product(for: product.id) else {
+            return "USD pricing shown at checkout"
         }
 
-        let unit: String
-        switch period.unit {
-        case .day:
-            unit = period.value == 1 ? "day" : "\(period.value) days"
-        case .week:
-            unit = period.value == 1 ? "week" : "\(period.value) weeks"
-        case .month:
-            unit = period.value == 1 ? "month" : "\(period.value) months"
-        case .year:
-            unit = period.value == 1 ? "year" : "\(period.value) years"
-        @unknown default:
-            unit = "period"
-        }
-
-        return unit
+        return "\(subscriptionProduct.usdDisplayPrice) / \(subscriptionProduct.periodText)"
     }
 
     private func essentialBenefit(icon: String, title: String, detail: String) -> some View {

@@ -406,8 +406,6 @@ struct CalendarView: View {
             switch viewModel.dataSource {
             case .cache:
                 message = "Couldn’t refresh from the network, so the app is showing cached data."
-            case .bundled:
-                message = "Couldn’t refresh from the network, so the app is showing bundled backup data."
             case .remote, nil:
                 message = nil
             }

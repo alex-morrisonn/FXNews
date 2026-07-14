@@ -10,7 +10,7 @@ struct MockCalendarService: CalendarService {
 
         return CalendarFetchResult(
             events: events,
-            source: .bundled,
+            source: .remote,
             lastUpdated: Date(),
             isFallback: false
         )

@@ -3,7 +3,6 @@ import Foundation
 enum CalendarDataSource: String {
     case remote
     case cache
-    case bundled
 }
 
 struct CalendarFetchResult {
